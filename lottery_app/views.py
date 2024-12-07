@@ -12,6 +12,12 @@ from sklearn.ensemble import RandomForestRegressor
 import json
 from django.contrib.auth import login, logout
 
+def user_logout(request):
+    logout(request)
+    messages.success(request, 'Você saiu com sucesso!')
+    return redirect('home')
+
+
 def register(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
@@ -22,12 +28,6 @@ def register(request):
     else:
         form = UserCreationForm()
     return render(request, 'registration/register.html', {'form': form})
-
-def user_logout(request):
-    logout(request)
-    messages.success(request, 'Você saiu com sucesso!')
-    return redirect('home')
-
 
 @login_required
 def profile(request):
@@ -63,7 +63,8 @@ def game_info(request, game_id):
     game = get_object_or_404(LotteryGame, id=game_id)
     return JsonResponse({
         'total_numbers': game.total_numbers,
-        'numbers_to_choose': game.numbers_to_choose
+        'numbers_to_choose': game.numbers_to_choose,
+        'concurso': game.concurso
     })
 
 @login_required
@@ -96,7 +97,8 @@ def save_ticket(request):
             user=request.user,
             game=game,
             numbers=sorted(numbers),
-            generation_method=method
+            generation_method=method,
+            concurso=game.concurso
         )
         
         return JsonResponse({
@@ -127,7 +129,7 @@ def generate_ai_numbers(game):
             num = random.randint(1, game.total_numbers)
             if num not in numbers:
                 numbers.append(num)
-
+        
         return sorted(numbers)
     except Exception:
         return random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose)

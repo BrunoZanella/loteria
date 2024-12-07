@@ -13,8 +13,10 @@
                         <tr>
                             <th>Data/Hora</th>
                             <th>Jogo</th>
+                            <th>Concurso</th>
                             <th>Números</th>
                             <th>Método</th>
+                            <th>Status</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -23,14 +25,34 @@
                             <tr>
                                 <td>{{ ticket.created_at|date:"d/m/Y H:i" }}</td>
                                 <td>{{ ticket.game.name }}</td>
+                                <td>{{ ticket.concurso }}</td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
-                                        {% for number in ticket.numbers %}
-                                            <span class="lottery-number selected">{{ number }}</span>
-                                        {% endfor %}
+                                        {% with matches,non_matches=ticket.check_matches %}
+                                            {% for number in ticket.numbers %}
+                                                {% if not ticket.game.sorteados %}
+                                                    <span class="lottery-number pending">{{ number }}</span>
+                                                {% elif number in matches %}
+                                                    <span class="lottery-number match">{{ number }}</span>
+                                                {% else %}
+                                                    <span class="lottery-number no-match">{{ number }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endwith %}
                                     </div>
                                 </td>
                                 <td>{{ ticket.get_generation_method_display }}</td>
+                                <td>
+                                    {% if ticket.game.sorteados %}
+                                        {% if ticket.is_winner %}
+                                            <span class="badge bg-success">Vencedor!</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Não Premiado</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-warning">Aguardando Sorteio</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <form action="{% url 'delete_ticket' ticket.id %}" method="post" class="d-inline">
                                         {% csrf_token %}
@@ -55,4 +77,40 @@
         {% endif %}
     </div>
 </div>
+
+<style>
+.lottery-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 5px;
+    font-weight: bold;
+}
+
+.lottery-number.pending {
+    background-color: #f8f9fa;
+    border: 2px solid #dee2e6;
+    color: #495057;
+}
+
+.lottery-number.match {
+    background-color: #28a745;
+    border: 2px solid #1e7e34;
+    color: white;
+}
+
+.lottery-number.no-match {
+    background-color: #dc3545;
+    border: 2px solid #bd2130;
+    color: white;
+}
+
+.badge {
+    font-size: 0.9em;
+    padding: 0.5em 0.7em;
+}
+</style>
 {% endblock %}
