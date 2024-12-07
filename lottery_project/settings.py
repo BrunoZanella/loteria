@@ -7,9 +7,10 @@ SECRET_KEY = 'django-insecure-8t*&l0ep4-mep$mm-6f!9&8+=3c0rjh4mz5hl14d=!04*+djw@
 
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+#ALLOWED_HOSTS = ["*"]
+#CSRF_TRUSTED_ORIGINS= ["https://loteria.up.railway.app"]
 
-CSRF_TRUSTED_ORIGINS= ["https://loteria.up.railway.app"]
+ALLOWED_HOSTS = ['192.168.15.96','10.0.6.169']
 
 INSTALLED_APPS = [
     'django.contrib.admin',

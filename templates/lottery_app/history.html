@@ -28,11 +28,11 @@
                                 <td>{{ ticket.concurso }}</td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
-                                        {% with matches,non_matches=ticket.check_matches %}
+                                        {% with result=ticket.check_matches %}
                                             {% for number in ticket.numbers %}
                                                 {% if not ticket.game.sorteados %}
                                                     <span class="lottery-number pending">{{ number }}</span>
-                                                {% elif number in matches %}
+                                                {% elif number in result.0 %}
                                                     <span class="lottery-number match">{{ number }}</span>
                                                 {% else %}
                                                     <span class="lottery-number no-match">{{ number }}</span>
