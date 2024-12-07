@@ -9,7 +9,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
-CSRF_TRUSTED_ORIGINS= ["loteria.up.railway.app"]
+CSRF_TRUSTED_ORIGINS= ["https://loteria.up.railway.app/"]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
