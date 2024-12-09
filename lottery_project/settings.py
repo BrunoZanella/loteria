@@ -12,6 +12,10 @@ ALLOWED_HOSTS = ["*"]
 #ALLOWED_HOSTS = ['192.168.15.96','10.0.6.169']
 
 INSTALLED_APPS = [
+    'admin_interface',
+    'colorfield',
+    'django.contrib.humanize',
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -21,7 +25,11 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap5',
     'lottery_app',
+
+    'localflavor',
 ]
+
+X_FRAME_OPTIONS='SAMEORIGIN'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
