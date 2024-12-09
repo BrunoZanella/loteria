@@ -9,7 +9,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from pathlib import Path
 from webdriver_manager.chrome import ChromeDriverManager
-
+from django.db.models import F
 
 # Configurar driver do Selenium
 def configurar_driver(download_dir):
@@ -19,8 +19,15 @@ def configurar_driver(download_dir):
         "download.prompt_for_download": False,
         "safebrowsing.enabled": True,
     })
+    chrome_options.add_argument("--enable-gpu")
     chrome_options.add_argument("--disable-popup-blocking")
     chrome_options.add_argument("--disable-notifications")
+    chrome_options.add_argument("--disable-infobars")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--disable-accelerated-2d-canvas")
     service = Service(ChromeDriverManager().install())
     return webdriver.Chrome(service=service, options=chrome_options)
 
@@ -29,6 +36,7 @@ def configurar_driver(download_dir):
 def baixar_arquivo(driver, url, xpath, download_dir):
     try:
         driver.get(url)
+        driver.maximize_window()
         print(f"Acessando URL: {url}")
 
         WebDriverWait(driver, 10).until(
@@ -41,18 +49,26 @@ def baixar_arquivo(driver, url, xpath, download_dir):
         driver.execute_script("arguments[0].scrollIntoView(true);", elemento)
         time.sleep(1)
 
-        nome_arquivo = elemento.get_attribute("href").split("/")[-1]
-        caminho_arquivo = os.path.join(download_dir, nome_arquivo)
+        # Tentar obter o atributo href
+        href = elemento.get_attribute("href")
+        if href:
+            nome_arquivo = href.split("/")[-1]
+            caminho_arquivo = os.path.join(download_dir, nome_arquivo)
 
-        # Verifica se o arquivo já existe e apaga antes de baixar
-        if os.path.exists(caminho_arquivo):
-            os.remove(caminho_arquivo)
+            # Verifica se o arquivo já existe e apaga antes de baixar
+            if os.path.exists(caminho_arquivo):
+                os.remove(caminho_arquivo)
 
-        driver.execute_script("arguments[0].click();", elemento)
-        print(f"Download iniciado para: {url}")
+            driver.execute_script("arguments[0].click();", elemento)
+            print(f"Download iniciado para: {href}")
+        else:
+            print("Elemento não possui atributo 'href'. Tentando clique direto.")
+            driver.execute_script("arguments[0].click();", elemento)
+
         time.sleep(5)
     except Exception as e:
         print(f"Erro ao baixar arquivo de {url}: {e}")
+
 
 
 # Função para converter arquivos XLSX para CSV
@@ -84,17 +100,54 @@ def executar_script():
     try:
         # URLs e seus respectivos XPaths
         sites = [
-            ("https://loterias.caixa.gov.br/Paginas/Mega-Sena.aspx", '//*[@id="resultados"]/div/ul/li/a'),
-            ("https://loterias.caixa.gov.br/Paginas/Lotofacil.aspx", '//*[@id="resultados"]/div/ul/li/a'),
-            ("https://loterias.caixa.gov.br/Paginas/Quina.aspx", '//*[@id="resultados"]/div/ul/li/a'),
+            ("https://loterias.caixa.gov.br/Paginas/Mega-Sena.aspx", '//*[@id="btnResultados"]'),
+            ("https://loterias.caixa.gov.br/Paginas/Lotofacil.aspx", '//*[@id="btnResultados"]'),
+            ("https://loterias.caixa.gov.br/Paginas/Quina.aspx", '//*[@id="btnResultados"]'),
         ]
 
         for url, xpath in sites:
             baixar_arquivo(driver, url, xpath, pasta_download)
 
         converter_para_csv(pasta_download)
+        processar_dados(pasta_download)
+
     finally:
         driver.quit()
+
+
+def processar_dados(pasta_download):
+    from lottery_app.models import LotteryGame  # Importa dentro da função para evitar erro
+    import pandas as pd
+
+    for arquivo in os.listdir(pasta_download):
+        if arquivo.endswith(".csv"):
+            nome_loteria = arquivo.split(".")[0]
+            caminho_arquivo = os.path.join(pasta_download, arquivo)
+            try:
+                # Lê o arquivo CSV
+                df = pd.read_csv(caminho_arquivo)
+
+                # Obtém o último concurso
+                ultimo_concurso = df["Concurso"].max()
+
+                # Combina as colunas que contêm "Bola" em uma string
+                colunas_bolas = [col for col in df.columns if "Bola" in col]
+                ultima_linha = df[df["Concurso"] == ultimo_concurso]
+                numeros_sorteados = ultima_linha[colunas_bolas].values.flatten()
+                sorteados = ",".join(f"{int(num):02}" for num in numeros_sorteados)
+
+                # Atualiza o registro no banco de dados
+                jogo = LotteryGame.objects.filter(name__iexact=nome_loteria).first()
+                if jogo:
+                    jogo.historical_data.name = f"historical_data/{arquivo}"  # Atualiza o caminho
+                    jogo.concurso = ultimo_concurso
+                    jogo.sorteados = sorteados
+                    jogo.save()
+                    print(f"Dados do jogo '{nome_loteria}' atualizados com sucesso.")
+                else:
+                    print(f"Jogo '{nome_loteria}' não encontrado no banco de dados.")
+            except Exception as e:
+                print(f"Erro ao processar arquivo {arquivo}: {e}")
 
 
 if __name__ == "__main__":
