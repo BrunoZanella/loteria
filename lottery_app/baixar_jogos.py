@@ -118,6 +118,7 @@ def executar_script():
 def processar_dados(pasta_download):
     from lottery_app.models import LotteryGame  # Importa dentro da função para evitar erro
     import pandas as pd
+    from django.core.files import File
 
     for arquivo in os.listdir(pasta_download):
         if arquivo.endswith(".csv"):
@@ -139,7 +140,15 @@ def processar_dados(pasta_download):
                 # Atualiza o registro no banco de dados
                 jogo = LotteryGame.objects.filter(name__iexact=nome_loteria).first()
                 if jogo:
-                    jogo.historical_data.name = f"historical_data/{arquivo}"  # Atualiza o caminho
+                    # Apaga o arquivo antigo, se existir
+                    if jogo.historical_data and jogo.historical_data.name:
+                        jogo.historical_data.delete(save=False)
+
+                    # Substitui o arquivo antigo pelo novo
+                    with open(caminho_arquivo, 'rb') as novo_arquivo:
+                        jogo.historical_data.save(arquivo, File(novo_arquivo), save=False)
+
+                    # Atualiza as outras informações
                     jogo.concurso = ultimo_concurso
                     jogo.sorteados = sorteados
                     jogo.save()
