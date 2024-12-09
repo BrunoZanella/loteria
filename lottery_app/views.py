@@ -5,18 +5,9 @@ from django.http import JsonResponse
 from django.contrib.auth.forms import UserCreationForm
 from .models import LotteryGame, LotteryTicket
 from .forms import LotteryPlayForm, UserUpdateForm
+from .utils.number_analysis import generate_ai_numbers
 import random
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestRegressor
 import json
-from django.contrib.auth import login, logout
-
-def user_logout(request):
-    logout(request)
-    messages.success(request, 'Você saiu com sucesso!')
-    return redirect('home')
-
 
 def register(request):
     if request.method == 'POST':
@@ -73,15 +64,24 @@ def generate_numbers(request):
         data = json.loads(request.body)
         game = get_object_or_404(LotteryGame, id=data['game_id'])
         method = data['method']
+        num_tickets = data.get('number_of_tickets', 1)
         
         if method == 'manual':
             numbers = data.get('numbers', [])
+            return JsonResponse({'numbers': [numbers]})  # Return as list for consistency
         elif method == 'auto':
-            numbers = random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose)
+            # Generate unique random combinations
+            predictions = []
+            while len(predictions) < num_tickets:
+                numbers = random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose)
+                if sorted(numbers) not in predictions:
+                    predictions.append(sorted(numbers))
+            return JsonResponse({'numbers': predictions})
         else:  # AI method
-            numbers = generate_ai_numbers(game)
-        
-        return JsonResponse({'numbers': sorted(numbers)})
+            predictions = generate_ai_numbers(game, num_tickets)
+            if not isinstance(predictions, list):
+                predictions = [predictions]
+            return JsonResponse({'numbers': predictions})
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
@@ -98,7 +98,8 @@ def save_ticket(request):
             game=game,
             numbers=sorted(numbers),
             generation_method=method,
-            concurso=game.concurso
+            concurso=game.concurso,
+            sorteados=game.sorteados
         )
         
         return JsonResponse({
@@ -107,29 +108,3 @@ def save_ticket(request):
         })
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
-
-def generate_ai_numbers(game):
-    try:
-        df = pd.read_csv(game.historical_data.path)
-        X = df.iloc[:-1].values
-        y = df.iloc[1:].values
-        
-        model = RandomForestRegressor(n_estimators=100)
-        model.fit(X, y)
-        
-        last_numbers = df.iloc[-1].values.reshape(1, -1)
-        prediction = model.predict(last_numbers)[0]
-        
-        numbers = sorted([
-            round(num) for num in prediction[:game.numbers_to_choose]
-            if 1 <= round(num) <= game.total_numbers
-        ])
-        
-        while len(numbers) < game.numbers_to_choose:
-            num = random.randint(1, game.total_numbers)
-            if num not in numbers:
-                numbers.append(num)
-        
-        return sorted(numbers)
-    except Exception:
-        return random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose)

@@ -23,6 +23,7 @@ class LotteryTicket(models.Model):
     numbers = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
     concurso = models.IntegerField()
+    sorteados = models.CharField(max_length=200, blank=True, null=True)
     generation_method = models.CharField(
         max_length=20,
         choices=[
@@ -36,10 +37,10 @@ class LotteryTicket(models.Model):
         return f"{self.game.name} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
 
     def check_matches(self):
-        if not self.game.sorteados:
+        if not self.sorteados:
             return [], []
         
-        winning_numbers = self.game.get_sorted_numbers()
+        winning_numbers = [int(num.strip()) for num in self.sorteados.split(',')]
         matches = []
         non_matches = []
         
@@ -52,7 +53,7 @@ class LotteryTicket(models.Model):
         return matches, non_matches
 
     def is_winner(self):
-        if not self.game.sorteados:
+        if not self.sorteados:
             return False
         matches, _ = self.check_matches()
         return len(matches) == self.game.numbers_to_choose
