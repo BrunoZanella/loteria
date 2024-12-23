@@ -46,7 +46,7 @@ class LotteryAppConfig(AppConfig):
                 while True:
                     now = datetime.now(tz=SAO_PAULO_TZ)
                     current_time = now.time()
-                    hora_api = dt_time(17, 0)
+                    hora_api = dt_time(19, 0)
                     hora_fim_api = dt_time(23, 59)
                     
                     # Verificar se o horário está entre 16:00 e 23:59
@@ -85,7 +85,7 @@ class LotteryAppConfig(AppConfig):
                     else:
                         print(f"Aguardando até as {hora_api} para iniciar verificações.")
                     
-                    time.sleep(10)  # Verifica a cada 30 segundos
+                    time.sleep(600)  # Verifica a cada 30 segundos
 
                 # Espera até as 16:00 do próximo dia para reiniciar
                 while now.time() < hora_api:
