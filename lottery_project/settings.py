@@ -30,7 +30,7 @@ X_FRAME_OPTIONS='SAMEORIGIN'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+#    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -41,11 +41,11 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'lottery_project.urls'
 
-#ALLOWED_HOSTS = ['192.168.15.96','10.0.6.169']
+ALLOWED_HOSTS = ['192.168.15.96','10.0.6.169']
 
-ALLOWED_HOSTS = ["*"]
-STATICSTORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-CSRF_TRUSTED_ORIGINS= ["https://loteria.up.railway.app"]
+# ALLOWED_HOSTS = ["*"]
+# STATICSTORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# CSRF_TRUSTED_ORIGINS= ["https://loteria.up.railway.app"]
 
 TEMPLATES = [
     {
