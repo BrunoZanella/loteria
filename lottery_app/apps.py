@@ -47,7 +47,7 @@ class LotteryAppConfig(AppConfig):
                 while True:
                     now = datetime.now(tz=SAO_PAULO_TZ)
                     current_time = now.time()
-                    hora_api = dt_time(19, 0)
+                    hora_api = dt_time(9, 30)
                     hora_fim_api = dt_time(23, 59)
                     
                     # Verificar se o horário está entre 16:00 e 23:59

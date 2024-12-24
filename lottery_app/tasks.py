@@ -12,7 +12,7 @@ def start_scheduler():
     """
     Inicia o agendador e mantém a execução contínua.
     """
-    schedule.every().day.at("19:00").do(tarefa_principal)
+    schedule.every().day.at("09:30").do(tarefa_principal)
 
     print("Agendador do tasks iniciado. Aguardando o horário...")
     while True:

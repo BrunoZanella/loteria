@@ -41,6 +41,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'lottery_project.urls'
 
+#ALLOWED_HOSTS = ['192.168.15.96','10.0.6.169']
 
 ALLOWED_HOSTS = ["*"]
 STATICSTORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
