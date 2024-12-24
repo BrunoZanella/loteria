@@ -12,6 +12,7 @@ import os
 from zoneinfo import ZoneInfo
 from datetime import datetime, time as dt_time
 from lottery_app.baixar_jogos import executar_script
+from lottery_app.tasks import start_scheduler  # Importa o agendador
 
 import unidecode  # Certifique-se de instalar esta biblioteca: pip install unidecode
 
@@ -84,6 +85,8 @@ class LotteryAppConfig(AppConfig):
                             break
                     else:
                         print(f"Aguardando até as {hora_api} para iniciar verificações.")
+                    
+                    start_scheduler()
                     
                     time.sleep(600)  # Verifica a cada 30 segundos
 
