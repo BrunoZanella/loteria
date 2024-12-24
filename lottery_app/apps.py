@@ -13,8 +13,8 @@ from zoneinfo import ZoneInfo
 from datetime import datetime, time as dt_time
 from lottery_app.baixar_jogos import executar_script
 from lottery_app.tasks import start_scheduler  # Importa o agendador
+import unidecode 
 
-import unidecode  # Certifique-se de instalar esta biblioteca: pip install unidecode
 
 class LotteryAppConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
@@ -26,39 +26,26 @@ class LotteryAppConfig(AppConfig):
 
         # Verifica se o processo atual é o principal
         if os.environ.get('RUN_MAIN') == 'true':
+            print("Iniciando verificações de loteria e agendador...")
 
-            # Função para formatar os nomes dos jogos
-            def format_game_name(game_name):
-                """
-                Formata o nome do jogo para corresponder ao formato esperado pela API.
-                - Remove acentos
-                - Remove espaços, traços
-                - Converte para letras minúsculas
-                """
-                # Remove acentos, espaços e traços
-                formatted_name = unidecode.unidecode(game_name).replace(" ", "").replace("-", "").lower()
-
-                return formatted_name
-
-            # Nova lógica para verificar mudanças de concurso
             def check_lottery_updates():
                 from lottery_app.models import LotteryGame
 
                 while True:
                     now = datetime.now(tz=SAO_PAULO_TZ)
                     current_time = now.time()
-                    hora_api = dt_time(9, 30)
+                    hora_api = dt_time(9, 40)
                     hora_fim_api = dt_time(23, 59)
                     
-                    # Verificar se o horário está entre 16:00 e 23:59
-                    if hora_api <= current_time < dt_time(23, 59):
+                    # Verificar se o horário está entre 19:00 e 23:59
+                    if hora_api <= current_time < hora_fim_api:
                         print(f"Verificando atualizações de loteria às {now.strftime('%Y-%m-%d %H:%M:%S')}...")
 
                         # Iterar sobre todos os jogos registrados no banco de dados
                         for game in LotteryGame.objects.all():
                             try:
                                 # Formata o nome do jogo
-                                formatted_name = format_game_name(game.name)
+                                formatted_name = unidecode.unidecode(game.name).replace(" ", "").replace("-", "").lower()
                                 api_url = f"https://loteriascaixa-api.herokuapp.com/api/{formatted_name}/latest"
                                 
                                 response = requests.get(api_url)
@@ -86,19 +73,15 @@ class LotteryAppConfig(AppConfig):
                     else:
                         print(f"Aguardando até as {hora_api} para iniciar verificações.")
                     
-                    start_scheduler()
-                    
-                    time.sleep(600)  # Verifica a cada 30 segundos
+                    time.sleep(600)  # Verifica a cada 10 minutos
 
-                # Espera até as 16:00 do próximo dia para reiniciar
-                while now.time() < hora_api:
-                    now = datetime.now(tz=SAO_PAULO_TZ)
-                    time.sleep(60)
-
-            # Inicia a thread
+            # Thread para atualizações de loteria
             thread_lottery_updates = threading.Thread(target=check_lottery_updates, daemon=True)
             thread_lottery_updates.start()
 
+            # Thread para agendador
+            thread_scheduler = threading.Thread(target=start_scheduler, daemon=True)
+            thread_scheduler.start()
 
 
 
