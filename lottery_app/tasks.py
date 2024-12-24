@@ -11,7 +11,7 @@ SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
 # Defina as variáveis de horário de início e fim aqui
 START_TIME_HOUR = 11
 END_TIME_HOUR = 11
-END_TIME_MINUTE = 30
+END_TIME_MINUTE = 50
 
 def format_game_name(game_name):
     """
