@@ -10,4 +10,5 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('register/', views.register, name='register'),
     path('api/game/<int:game_id>/', views.game_info, name='game_info'),
+    path('start-tasks/', views.start_background_tasks, name='start_tasks'),
 ]
