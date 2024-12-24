@@ -8,6 +8,9 @@ from .forms import LotteryPlayForm, UserUpdateForm
 from .utils.number_analysis import generate_ai_numbers
 import random
 import json
+from django.core.cache import cache
+from datetime import datetime
+
 
 def register(request):
     if request.method == 'POST':
@@ -32,11 +35,35 @@ def profile(request):
         form = UserUpdateForm(instance=request.user)
     return render(request, 'lottery_app/profile.html', {'form': form})
 
+
 @login_required
 def home(request):
+    """
+    Exibe a página principal e inicia as tarefas em segundo plano, se necessário.
+    """
+    # Verifica se o agendador já foi iniciado hoje
+    today = datetime.now().date()
+    last_run_date = cache.get("last_scheduler_run_date")
+
+    # Se o agendador não foi executado hoje, chama a função para iniciar as tarefas em segundo plano
+    if last_run_date != today:
+        start_background_tasks(request)  # Chama a função para iniciar o agendador
+        # Armazena a data da última execução no cache
+        cache.set("last_scheduler_run_date", today, timeout=86400)  # Expira após 24 horas
+
     return render(request, 'lottery_app/home.html', {
         'form': LotteryPlayForm(),
     })
+
+
+
+# @login_required
+# def home(request):
+#     return render(request, 'lottery_app/home.html', {
+#         'form': LotteryPlayForm(),
+#     })
+
+
 
 @login_required
 def history(request):
