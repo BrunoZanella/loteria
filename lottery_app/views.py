@@ -109,21 +109,16 @@ def save_ticket(request):
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
-import threading
+
+
 from django.http import JsonResponse
+import threading
 from lottery_app.tasks import start_scheduler
-from lottery_app.apps import LotteryAppConfig
 
 def start_background_tasks(request):
-    # Verifica se as threads já estão rodando
-    if not hasattr(threading.current_thread(), "_lottery_thread"):
-        print("Iniciando atualizações de loteria...")
-        thread_lottery_updates = threading.Thread(
-            target=LotteryAppConfig.ready, daemon=True
-        )
-        threading.current_thread()._lottery_thread = thread_lottery_updates
-        thread_lottery_updates.start()
-
+    """
+    Inicia as tarefas em segundo plano.
+    """
     if not hasattr(threading.current_thread(), "_scheduler_thread"):
         print("Iniciando agendador...")
         thread_scheduler = threading.Thread(target=start_scheduler, daemon=True)

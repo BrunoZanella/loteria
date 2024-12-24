@@ -14,24 +14,19 @@ from datetime import datetime, time as dt_time
 from lottery_app.baixar_jogos import executar_script
 import unidecode  
 
-import threading
-import requests
-import os
 from django.apps import AppConfig
+import os
+from lottery_app.tasks import start_background_scheduler
+
 
 class LotteryAppConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'lottery_app'
 
     def ready(self):
-        # Evitar loop em ambientes onde o servidor roda múltiplos workers
         if os.environ.get("RUN_MAIN", None) == "true":
-            print("Chamando a view para iniciar tarefas...")
-            try:
-                # Substitua pela URL completa de produção
-                requests.get("https://loteria.up.railway.app/start-tasks/")
-            except Exception as e:
-                print(f"Erro ao iniciar tarefas: {str(e)}")
+            print("Iniciando o agendador no apps.py...")
+            start_background_scheduler()
 
 
 
