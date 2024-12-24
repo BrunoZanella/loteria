@@ -95,7 +95,7 @@ def check_lottery_updates():
         games_to_check = remaining_games
         if games_to_check:
             print(f"Rechecando em 5 minutos... ({len(games_to_check)} jogos restantes)")
-            time.sleep(30)  # Aguarda 5 minutos antes de rechecagem
+            time.sleep(300)  # Aguarda 5 minutos antes de rechecagem
         now = datetime.now(tz=SAO_PAULO_TZ)
 
     print("Fim do período de verificação. Próxima execução será às 10:00 do próximo dia.")
