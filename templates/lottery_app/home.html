@@ -1,9 +1,14 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load static %}
 
 {% block content %}
     {% if user.is_authenticated %}
-        <div class="card">
+    <div class="d-flex justify-content-center align-items-center min-vh-10">
+        <!-- Adição da logo -->
+        <img src="{% static 'images/sorte_play_14_sem_fundo.png' %}" alt="SortePlay Logo" class="logo-image">
+    </div>
+    <div class="card">
             <div class="card-header">
                 <h4 class="mb-0">Novo Jogo</h4>
             </div>
@@ -15,22 +20,25 @@
                     <div id="ticketsContainer">
                         <!-- Tickets will be dynamically added here -->
                     </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="button" id="generateBtn" class="btn btn-primary">
-                            <i class="fas fa-dice me-2"></i>Gerar Números
-                        </button>
-                        <button type="button" id="saveBtn" class="btn btn-success">
-                            <i class="fas fa-save me-2"></i>Salvar Jogos
-                        </button>
-                    </div>
                 </form>
             </div>
         </div>
+        
+        <!-- Botões fixos -->
+        <div class="fixed-buttons">
+            <button type="button" id="generateBtn" class="btn btn-primary mb-2">
+                <i class="fas fa-dice me-2"></i>Gerar Números
+            </button>
+            <button type="button" id="saveBtn" class="btn btn-success">
+                <i class="fas fa-save me-2"></i>Salvar Jogos
+            </button>
+        </div>
+    
     {% else %}
         <div class="text-center py-5">
-            <h2>Bem-vindo ao Gerador Inteligente de Loteria</h2>
-            <p class="lead mb-4">Use inteligência artificial para aumentar suas chances de ganhar!</p>
+            <img src="{% static 'images/sorte_play_14_sem_fundo.png' %}" alt="SortePlay Logo" class="mb-4 logo-image">
+            <h2>Bem-vindo ao SortePlay</h2>
+            <p class="lead mb-4">Use inteligência artificial para aumentar suas chances de ganhar na Loteria!</p>
             <div class="d-flex justify-content-center gap-3">
                 <a href="{% url 'login' %}" class="btn btn-primary">
                     <i class="fas fa-sign-in-alt me-2"></i>Entrar
@@ -42,6 +50,40 @@
         </div>
     {% endif %}
 
+    <div id="loadingModal" class="modal fade" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <p>Aguarde...</p>
+                    <svg class="spinner" width="50" height="50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
+                        <circle cx="25" cy="25" r="20" stroke="gray" stroke-width="5" fill="none" />
+                        <circle cx="25" cy="25" r="20" stroke="blue" stroke-width="5" fill="none" stroke-dasharray="126" stroke-dashoffset="0">
+                            <animate attributeName="stroke-dashoffset" from="0" to="126" dur="1.5s" repeatCount="indefinite" />
+                        </circle>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .fixed-buttons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Espaçamento entre os botões */
+            z-index: 1000; /* Garante que fique acima de outros elementos */
+        }
+        
+        .fixed-buttons button {
+            width: auto; /* Ajusta automaticamente o tamanho do botão ao conteúdo */
+            padding: 10px 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Adiciona um leve efeito de sombra */
+        }
+        
+    </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const gameSelect = document.querySelector('#id_game');
@@ -53,7 +95,28 @@
             
             let currentGame = null;
             let tickets = [];
-            
+
+            // Modal
+            const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+
+            function showLoading() {
+                loadingModal.show();
+            }
+
+            function hideLoading() {
+                loadingModal.hide();
+            }
+
+            // Função para mostrar/ocultar o botão Gerar Números
+            function toggleGenerateButton() {
+                if (methodSelect.value === 'manual') {
+                    generateBtn.style.display = 'none';  // Esconde o botão
+                } else {
+                    generateBtn.style.display = 'inline-block';  // Mostra o botão
+                }
+            }
+
+
             function createTicket(index) {
                 const ticketDiv = document.createElement('div');
                 ticketDiv.className = 'card mt-4';
@@ -139,7 +202,10 @@
             
             function generateNumbers() {
                 if (!currentGame || !methodSelect.value) return;
-                
+
+                // Show the loading modal
+                showLoading();
+
                 const promises = tickets.map(() => {
                     const data = {
                         game_id: gameSelect.value,
@@ -166,6 +232,8 @@
                             el.classList.toggle('selected', ticket.selectedNumbers.has(num));
                         });
                     });
+                // Hide the loading modal after the process is done
+                hideLoading();
                 });
             }
             
@@ -205,11 +273,19 @@
             }
             
             gameSelect.addEventListener('change', updateTickets);
-            methodSelect.addEventListener('change', updateTickets);
+            methodSelect.addEventListener('change', function() {
+                updateTickets();
+                toggleGenerateButton();  // Verifica se o botão precisa ser escondido
+            });
+        //    methodSelect.addEventListener('change', updateTickets);
+
             numTicketsInput.addEventListener('change', updateTickets);
             generateBtn.addEventListener('click', generateNumbers);
             saveBtn.addEventListener('click', saveTickets);
-            
+
+            // Inicializa o estado do botão baseado na seleção do método de geração
+            toggleGenerateButton();
+
             if (gameSelect.value) {
                 updateTickets();
             }

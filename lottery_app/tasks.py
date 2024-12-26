@@ -5,13 +5,14 @@ import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import unidecode  # Certifique-se de instalar: pip install unidecode
+from lottery_app.baixar_jogos import executar_script
 
 SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
 
 # Defina as variáveis de horário de início e fim aqui
-START_TIME_HOUR = 11
-END_TIME_HOUR = 11
-END_TIME_MINUTE = 50
+START_TIME_HOUR = 21
+END_TIME_HOUR = 23
+END_TIME_MINUTE = 59
 
 def format_game_name(game_name):
     """
@@ -70,6 +71,7 @@ def check_lottery_updates():
                 response = requests.get(api_url)
 
                 if response.status_code == 200:
+
                     data = response.json()
                     api_concurso = int(data.get('concurso', 0))
                     api_dezenas = ','.join(data.get('dezenas', []))
@@ -104,6 +106,7 @@ def check_lottery_updates():
     if now >= end_time:
         print("Limpando lista de jogos verificados para o próximo ciclo.")
         games_verified.clear()  # Limpa a lista para o próximo ciclo
+        executar_script()
 
 def start_scheduler():
     """
@@ -125,6 +128,7 @@ def start_background_scheduler():
     """
     Inicia o agendador em uma thread separada.
     """
+    
     thread = threading.Thread(target=start_scheduler, daemon=True)
     thread.start()
     print("Thread do agendador iniciada.")

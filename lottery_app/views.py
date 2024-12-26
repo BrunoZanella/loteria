@@ -10,7 +10,12 @@ import random
 import json
 from django.core.cache import cache
 from datetime import datetime
+from django.contrib.auth import login, logout
 
+def user_logout(request):
+    logout(request)
+    messages.success(request, 'Você saiu com sucesso!')
+    return redirect('home')
 
 def register(request):
     if request.method == 'POST':
@@ -36,7 +41,6 @@ def profile(request):
     return render(request, 'lottery_app/profile.html', {'form': form})
 
 
-@login_required
 def home(request):
     """
     Exibe a página principal e inicia as tarefas em segundo plano, se necessário.
@@ -54,14 +58,6 @@ def home(request):
     return render(request, 'lottery_app/home.html', {
         'form': LotteryPlayForm(),
     })
-
-
-
-# @login_required
-# def home(request):
-#     return render(request, 'lottery_app/home.html', {
-#         'form': LotteryPlayForm(),
-#     })
 
 
 
@@ -108,9 +104,11 @@ def generate_numbers(request):
             predictions = generate_ai_numbers(game, num_tickets)
             if not isinstance(predictions, list):
                 predictions = [predictions]
+            print('predictions',predictions)
             return JsonResponse({'numbers': predictions})
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
 
 @login_required
 def save_ticket(request):
@@ -119,22 +117,53 @@ def save_ticket(request):
         game = get_object_or_404(LotteryGame, id=data['game_id'])
         numbers = data['numbers']
         method = data['method']
-        
+
+        # Incrementa o número do concurso para o próximo
+        next_concurso = game.concurso + 1
+
+        # Salva o bilhete com o próximo número do concurso
         ticket = LotteryTicket.objects.create(
             user=request.user,
             game=game,
             numbers=sorted(numbers),
             generation_method=method,
-            concurso=game.concurso,
-            sorteados=game.sorteados
+            concurso=next_concurso,  # Define como o próximo concurso
+            sorteados=None  # Os números sorteados ainda não existem para o próximo concurso
         )
-        
+
         return JsonResponse({
-            'message': 'Jogo salvo com sucesso!',
+            'message': 'Jogo salvo com sucesso para o próximo concurso!',
             'ticket_id': ticket.id
         })
-    
+
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+# @login_required
+# def save_ticket(request):
+#     if request.method == 'POST':
+#         data = json.loads(request.body)
+#         game = get_object_or_404(LotteryGame, id=data['game_id'])
+#         numbers = data['numbers']
+#         method = data['method']
+        
+#         ticket = LotteryTicket.objects.create(
+#             user=request.user,
+#             game=game,
+#             numbers=sorted(numbers),
+#             generation_method=method,
+#             concurso=game.concurso,
+#             sorteados=game.sorteados
+#         )
+        
+#         return JsonResponse({
+#             'message': 'Jogo salvo com sucesso!',
+#             'ticket_id': ticket.id
+#         })
+    
+#     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
 
 
 

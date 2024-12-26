@@ -1,4 +1,169 @@
+
+
 {% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="d-flex justify-content-center align-items-center min-vh-10">
+    <!-- Adição da logo -->
+    <img src="{% static 'images/sorte_play_14_sem_fundo.png' %}" alt="SortePlay Logo" class="logo-image">
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h4 class="mb-0">Histórico de Jogos</h4>
+    </div>
+    <div class="card-body">
+        {% if tickets %}
+            <div class="tickets-list">
+                {% for ticket in tickets %}
+                    <div class="ticket-card mb-3">
+                        <div class="ticket-header">
+                            <div class="ticket-info">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <strong>{{ ticket.game.name }}</strong>
+                                    <form action="{% url 'delete_ticket' ticket.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger btn-sm" 
+                                                onclick="return confirm('Tem certeza que deseja excluir este jogo?')">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center text-muted small">
+                                    <span>{{ ticket.created_at|date:"d/m/Y H:i" }}</span>
+                                    <span>Concurso: {{ ticket.concurso }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="ticket-body">
+                            <div class="numbers-row">
+                                {% if not ticket.sorteados %}
+                                    {% for number in ticket.numbers %}
+                                        <span class="lottery-number awaiting">{{ number }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    {% with result=ticket.check_matches %}
+                                        {% for number in ticket.numbers %}
+                                            {% if number in result.0 %}
+                                                <span class="lottery-number match">{{ number }}</span>
+                                            {% else %}
+                                                <span class="lottery-number no-match">{{ number }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endwith %}
+                                {% endif %}
+                            </div>
+                            <div class="ticket-footer d-flex justify-content-between align-items-center mt-2">
+                                <span class="badge method-badge">{{ ticket.get_generation_method_display }}</span>
+                                {% if not ticket.sorteados %}
+                                    <span class="badge bg-warning">Aguardando Sorteio</span>
+                                {% else %}
+                                    {% if ticket.is_winner %}
+                                        <span class="badge bg-success">Vencedor!</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Não Premiado</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <p class="mb-3">Você ainda não tem nenhum jogo salvo.</p>
+                <a href="{% url 'home' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Criar Novo Jogo
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .ticket-card {
+        background: var(--background-color);
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 1rem;
+    }
+    
+    .ticket-header {
+        margin-bottom: 0.5rem;
+        color: var(--primary-color);
+    }
+    
+    .numbers-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: flex-start;
+    }
+    
+    .lottery-number {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    .lottery-number.awaiting {
+        background-color: #dfdede;
+        border: 1px solid var(--primary-color);
+        color: rgb(51, 50, 50);
+    }
+    
+    .lottery-number.match {
+        background-color: var(--success-color);
+        border: 1px solid #27ae60;
+        color: white;
+    }
+    
+    .lottery-number.no-match {
+        background-color: #f33b12;
+        border: 1px solid #f33b12;
+        color: white;
+    }
+    
+    .method-badge {
+        background-color: var(--primary-color);
+        color: white;
+        font-size: 0.75rem;
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.4em 0.6em;
+    }
+    
+    @media (max-width: 576px) {
+        .card-body {
+            padding: 0.75rem;
+        }
+        
+        .ticket-card {
+            padding: 0.75rem;
+        }
+        
+        .lottery-number {
+            width: 24px;
+            height: 24px;
+            font-size: 0.7rem;
+        }
+    }
+</style>
+{% endblock %}
+
+
+
+{% comment %} {% extends 'base.html' %}
 
 {% block content %}
 <div class="card">
@@ -28,33 +193,42 @@
                                 </div>
                             </div>
                         </div>
+                        
                         <div class="ticket-body">
                             <div class="numbers-row">
-                                {% with result=ticket.check_matches %}
+                                {% if not ticket.sorteados %}
+                                    <!-- Quando ainda não há sorteio, mostramos círculos vazios -->
                                     {% for number in ticket.numbers %}
-                                        {% if not ticket.game.sorteados %}
-                                            <span class="lottery-number pending">{{ number }}</span>
-                                        {% elif number in result.0 %}
-                                            <span class="lottery-number match">{{ number }}</span>
-                                        {% else %}
-                                            <span class="lottery-number no-match">{{ number }}</span>
-                                        {% endif %}
+                                        <span class="lottery-number awaiting">{{ number }}</span>
                                     {% endfor %}
-                                {% endwith %}
+                                {% else %}
+                                    <!-- Quando há sorteio, verificamos os números -->
+                                    {% with result=ticket.check_matches %}
+                                        {% for number in ticket.numbers %}
+                                            {% if number in result.0 %}
+                                                <span class="lottery-number match">{{ number }}</span>
+                                            {% else %}
+                                                <span class="lottery-number no-match">{{ number }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endwith %}
+                                {% endif %}
                             </div>
                             <div class="ticket-footer d-flex justify-content-between align-items-center mt-2">
                                 <span class="badge method-badge">{{ ticket.get_generation_method_display }}</span>
-                                {% if ticket.game.sorteados %}
+                                {% if not ticket.sorteados %}
+                                    <span class="badge bg-warning">Aguardando Sorteio</span>
+                                {% else %}
                                     {% if ticket.is_winner %}
                                         <span class="badge bg-success">Vencedor!</span>
                                     {% else %}
                                         <span class="badge bg-danger">Não Premiado</span>
                                     {% endif %}
-                                {% else %}
-                                    <span class="badge bg-warning">Aguardando Sorteio</span>
                                 {% endif %}
                             </div>
                         </div>
+                        
+                        
                     </div>
                 {% endfor %}
             </div>
@@ -142,6 +316,12 @@
         height: 24px;
         font-size: 0.7rem;
     }
+    .lottery-number.awaiting {
+        background-color: #6c757d;
+        border: 1px solid #545b62;
+        color: white;
+    }
+    
 }
 </style>
-{% endblock %}
+{% endblock %} {% endcomment %}

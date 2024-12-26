@@ -65,52 +65,64 @@ def generate_candidate_numbers(model, features, game, hot_numbers, patterns):
     score = evaluate_combination(numbers, patterns)
     return numbers, score
 
+
 def generate_ai_numbers(game, num_tickets=1):
-    """Generate AI-powered lottery number predictions"""
+    """Generate AI-powered lottery number predictions with diversification"""
     try:
         # Read and prepare data
         df = pd.read_csv(game.historical_data.path)
         numbers_df = prepare_lottery_data(df)
-        
+
         # Create features and prepare training data
         X = create_features(numbers_df.iloc[:-1])
         y = numbers_df.iloc[1:].values
-        
+
         # Apply recency weights
         sample_weights = np.linspace(0.1, 2.0, len(X))
-        
+
         # Train model
         model = train_prediction_model(X, y, sample_weights)
-        
+
         # Analyze patterns and frequencies
         patterns = analyze_patterns(numbers_df)
         frequency_dict = analyze_frequency(numbers_df.values.tolist(), game.total_numbers)
         hot_numbers = get_hot_numbers(frequency_dict, limit=15)
-        
+
         # Generate predictions
         last_features = create_features(numbers_df.iloc[-1:])
         predictions = []
         attempts = 0
-        max_attempts = num_tickets * 3
-        
+        max_attempts = num_tickets * 5  # Increased attempts to ensure diversity
+
         while len(predictions) < num_tickets and attempts < max_attempts:
             numbers, score = generate_candidate_numbers(
                 model, last_features, game, hot_numbers, patterns
             )
-            
-            # Check if prediction is unique
-            if numbers not in predictions:
+            numbers_set = set(numbers)
+
+            # Ensure prediction is unique and diverse
+            is_diverse = all(
+                len(numbers_set.intersection(set(existing))) < game.numbers_to_choose // 2
+                for existing in predictions
+            )
+            if is_diverse and numbers not in predictions:
                 predictions.append(numbers)
+
             attempts += 1
-        
+
         # Fill remaining slots with random numbers if needed
         while len(predictions) < num_tickets:
             numbers = sorted(random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose))
-            if numbers not in predictions:
+            numbers_set = set(numbers)
+            is_diverse = all(
+                len(numbers_set.intersection(set(existing))) < game.numbers_to_choose // 2
+                for existing in predictions
+            )
+            if is_diverse and numbers not in predictions:
                 predictions.append(numbers)
-        
+
         return predictions[0] if num_tickets == 1 else predictions
-        
+
     except Exception as e:
         print(f"Error in AI generation: {str(e)}")
         # Fallback to random generation
@@ -120,6 +132,63 @@ def generate_ai_numbers(game, num_tickets=1):
             if numbers not in predictions:
                 predictions.append(numbers)
         return predictions[0] if num_tickets == 1 else predictions
+
+
+# def generate_ai_numbers(game, num_tickets=1):
+#     """Generate AI-powered lottery number predictions"""
+#     try:
+#         # Read and prepare data
+#         df = pd.read_csv(game.historical_data.path)
+#         numbers_df = prepare_lottery_data(df)
+        
+#         # Create features and prepare training data
+#         X = create_features(numbers_df.iloc[:-1])
+#         y = numbers_df.iloc[1:].values
+        
+#         # Apply recency weights
+#         sample_weights = np.linspace(0.1, 2.0, len(X))
+        
+#         # Train model
+#         model = train_prediction_model(X, y, sample_weights)
+        
+#         # Analyze patterns and frequencies
+#         patterns = analyze_patterns(numbers_df)
+#         frequency_dict = analyze_frequency(numbers_df.values.tolist(), game.total_numbers)
+#         hot_numbers = get_hot_numbers(frequency_dict, limit=15)
+        
+#         # Generate predictions
+#         last_features = create_features(numbers_df.iloc[-1:])
+#         predictions = []
+#         attempts = 0
+#         max_attempts = num_tickets * 3
+        
+#         while len(predictions) < num_tickets and attempts < max_attempts:
+#             numbers, score = generate_candidate_numbers(
+#                 model, last_features, game, hot_numbers, patterns
+#             )
+            
+#             # Check if prediction is unique
+#             if numbers not in predictions:
+#                 predictions.append(numbers)
+#             attempts += 1
+        
+#         # Fill remaining slots with random numbers if needed
+#         while len(predictions) < num_tickets:
+#             numbers = sorted(random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose))
+#             if numbers not in predictions:
+#                 predictions.append(numbers)
+        
+#         return predictions[0] if num_tickets == 1 else predictions
+        
+#     except Exception as e:
+#         print(f"Error in AI generation: {str(e)}")
+#         # Fallback to random generation
+#         predictions = []
+#         while len(predictions) < num_tickets:
+#             numbers = sorted(random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose))
+#             if numbers not in predictions:
+#                 predictions.append(numbers)
+#         return predictions[0] if num_tickets == 1 else predictions
 
 
 
