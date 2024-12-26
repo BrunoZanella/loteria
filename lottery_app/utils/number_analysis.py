@@ -66,120 +66,287 @@ def generate_candidate_numbers(model, features, game, hot_numbers, patterns):
     return numbers, score
 
 
+
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import TimeSeriesSplit
+import xgboost as xgb
+import random
+from typing import List, Tuple, Dict
+import logging
+
 def generate_ai_numbers(game, num_tickets=1):
-    """Generate AI-powered lottery number predictions with diversification"""
+    """
+    Generate AI-powered lottery number predictions with diversification
+    Returns predictions in the same format as the original function
+    """
     try:
-        # Read and prepare data
+        # Configuração de logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        # Leitura e preparação dos dados
         df = pd.read_csv(game.historical_data.path)
-        numbers_df = prepare_lottery_data(df)
-
-        # Create features and prepare training data
-        X = create_features(numbers_df.iloc[:-1])
-        y = numbers_df.iloc[1:].values
-
-        # Apply recency weights
-        sample_weights = np.linspace(0.1, 2.0, len(X))
-
-        # Train model
-        model = train_prediction_model(X, y, sample_weights)
-
-        # Analyze patterns and frequencies
-        patterns = analyze_patterns(numbers_df)
-        frequency_dict = analyze_frequency(numbers_df.values.tolist(), game.total_numbers)
-        hot_numbers = get_hot_numbers(frequency_dict, limit=15)
-
-        # Generate predictions
-        last_features = create_features(numbers_df.iloc[-1:])
+        numbers_df = prepare_enhanced_lottery_data(df)
+        
+        # Criar features avançadas
+        X, y = create_advanced_features(numbers_df)
+        
+        # Treinar ensemble de modelos
+        models = train_ensemble_models(X, y)
+        
+        # Analisar padrões e frequências com técnicas avançadas
+        patterns = analyze_enhanced_patterns(numbers_df)
+        frequency_dict = analyze_advanced_frequency(numbers_df.values, game.total_numbers)
+        hot_numbers = get_smart_hot_numbers(frequency_dict, limit=20)
+        
+        # Gerar previsões usando ensemble
         predictions = []
         attempts = 0
-        max_attempts = num_tickets * 5  # Increased attempts to ensure diversity
+        max_attempts = num_tickets * 10
 
         while len(predictions) < num_tickets and attempts < max_attempts:
-            numbers, score = generate_candidate_numbers(
-                model, last_features, game, hot_numbers, patterns
+            # Gerar previsão usando ensemble
+            X_last = X.iloc[-1:] if len(X) > 0 else X.iloc[:1]
+            X_last_scaled = models['scaler'].transform(X_last)
+            
+            rf_pred = models['rf'].predict(X_last_scaled)
+            gb_pred = models['gb'].predict(X_last_scaled)
+            xgb_pred = models['xgb'].predict(X_last_scaled)
+            
+            # Combinar previsões
+            weights = np.array([0.4, 0.3, 0.3])
+            combined_pred = np.average([rf_pred, gb_pred, xgb_pred], weights=weights, axis=0)
+            
+            # Gerar números candidatos
+            numbers = generate_smart_numbers(
+                combined_pred[0], 
+                game.total_numbers, 
+                game.numbers_to_choose,
+                hot_numbers
             )
-            numbers_set = set(numbers)
-
-            # Ensure prediction is unique and diverse
-            is_diverse = all(
-                len(numbers_set.intersection(set(existing))) < game.numbers_to_choose // 2
-                for existing in predictions
-            )
-            if is_diverse and numbers not in predictions:
-                predictions.append(numbers)
-
+            
+            # Verificar diversidade
+            if is_diverse_prediction(numbers, predictions, game.numbers_to_choose):
+                predictions.append(sorted(numbers))
+            
             attempts += 1
-
-        # Fill remaining slots with random numbers if needed
+        
+        # Preencher slots restantes se necessário
         while len(predictions) < num_tickets:
             numbers = sorted(random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose))
-            numbers_set = set(numbers)
-            is_diverse = all(
-                len(numbers_set.intersection(set(existing))) < game.numbers_to_choose // 2
-                for existing in predictions
-            )
-            if is_diverse and numbers not in predictions:
+            if is_diverse_prediction(numbers, predictions, game.numbers_to_choose):
                 predictions.append(numbers)
-
+        
         return predictions[0] if num_tickets == 1 else predictions
 
     except Exception as e:
-        print(f"Error in AI generation: {str(e)}")
-        # Fallback to random generation
-        predictions = []
-        while len(predictions) < num_tickets:
-            numbers = sorted(random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose))
-            if numbers not in predictions:
-                predictions.append(numbers)
-        return predictions[0] if num_tickets == 1 else predictions
+        logger.error(f"Error in AI generation: {str(e)}")
+        return fallback_generation(game, num_tickets)
+
+def prepare_enhanced_lottery_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Preparação aprimorada dos dados históricos"""
+    # Assume que o DataFrame contém as colunas com os números sorteados
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    return df[numeric_columns]
+
+def create_advanced_features(numbers_df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
+    """Criação de features mais sofisticadas"""
+    features = pd.DataFrame()
+    
+    # Features estatísticas
+    for window in [3, 5, 10]:
+        features[f'mean_{window}'] = numbers_df.rolling(window=window).mean().mean(axis=1)
+        features[f'std_{window}'] = numbers_df.rolling(window=window).std().mean(axis=1)
+        
+    # Lag features
+    for lag in [1, 2, 3]:
+        lagged = numbers_df.shift(lag)
+        features[f'lag_{lag}'] = lagged.mean(axis=1)
+    
+    features = features.fillna(0)
+    
+    return features.iloc[:-1], numbers_df.iloc[1:].values
+
+def train_ensemble_models(X: pd.DataFrame, y: np.ndarray) -> Dict:
+    """Treina um ensemble de modelos de ML"""
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Random Forest
+    rf_model = RandomForestRegressor(
+        n_estimators=100,
+        max_depth=10,
+        random_state=42
+    )
+    
+    # Gradient Boosting
+    gb_model = GradientBoostingRegressor(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=5,
+        random_state=42
+    )
+    
+    # XGBoost
+    xgb_model = xgb.XGBRegressor(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=6,
+        random_state=42
+    )
+    
+    # Treinar modelos
+    rf_model.fit(X_scaled, y)
+    gb_model.fit(X_scaled, y)
+    xgb_model.fit(X_scaled, y)
+    
+    return {
+        'rf': rf_model,
+        'gb': gb_model,
+        'xgb': xgb_model,
+        'scaler': scaler
+    }
+
+def analyze_enhanced_patterns(numbers_df: pd.DataFrame) -> Dict:
+    """Análise de padrões nos números"""
+    patterns = {
+        'mean': numbers_df.mean().mean(),
+        'std': numbers_df.std().mean(),
+        'min': numbers_df.min().min(),
+        'max': numbers_df.max().max()
+    }
+    return patterns
+
+def analyze_advanced_frequency(numbers: np.ndarray, total_numbers: int) -> Dict:
+    """Análise de frequência com pesos temporais"""
+    frequency_dict = {i: 0 for i in range(1, total_numbers + 1)}
+    weights = np.linspace(0.5, 1.0, len(numbers))
+    
+    for idx, row in enumerate(numbers):
+        for number in row.flatten():
+            if number > 0:  # Ignora zeros
+                frequency_dict[int(number)] += weights[idx]
+    
+    return frequency_dict
+
+def get_smart_hot_numbers(frequency_dict: Dict, limit: int = 20) -> List[int]:
+    """Seleção de números quentes baseada na frequência"""
+    return [num for num, _ in sorted(
+        frequency_dict.items(), 
+        key=lambda x: x[1], 
+        reverse=True
+    )[:limit]]
+
+def generate_smart_numbers(
+    pred: np.ndarray,
+    total_numbers: int,
+    numbers_to_choose: int,
+    hot_numbers: List[int]
+) -> List[int]:
+    """Geração inteligente de números"""
+    # Combinar previsão do modelo com números quentes
+    numbers_pool = set(range(1, total_numbers + 1))
+    hot_set = set(hot_numbers[:numbers_to_choose])
+    
+    # Escolher alguns números dos hot numbers
+    hot_count = random.randint(numbers_to_choose // 3, numbers_to_choose // 2)
+    selected = set(random.sample(hot_set, hot_count))
+    
+    # Completar com números aleatórios
+    remaining = numbers_to_choose - len(selected)
+    available = list(numbers_pool - selected)
+    selected.update(random.sample(available, remaining))
+    
+    return sorted(list(selected))
+
+def is_diverse_prediction(
+    numbers: List[int],
+    existing_predictions: List[List[int]],
+    numbers_to_choose: int
+) -> bool:
+    """Verifica se a previsão é suficientemente diversa"""
+    if not existing_predictions:
+        return True
+    
+    numbers_set = set(numbers)
+    return all(
+        len(numbers_set.intersection(set(existing))) < numbers_to_choose // 2
+        for existing in existing_predictions
+    )
+
+def fallback_generation(game, num_tickets: int) -> List[List[int]]:
+    """Geração aleatória como fallback"""
+    predictions = []
+    while len(predictions) < num_tickets:
+        numbers = sorted(random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose))
+        if numbers not in predictions:
+            predictions.append(numbers)
+    return predictions[0] if num_tickets == 1 else predictions
+
+
+
 
 
 # def generate_ai_numbers(game, num_tickets=1):
-#     """Generate AI-powered lottery number predictions"""
+#     """Generate AI-powered lottery number predictions with diversification"""
 #     try:
 #         # Read and prepare data
 #         df = pd.read_csv(game.historical_data.path)
 #         numbers_df = prepare_lottery_data(df)
-        
+
 #         # Create features and prepare training data
 #         X = create_features(numbers_df.iloc[:-1])
 #         y = numbers_df.iloc[1:].values
-        
+
 #         # Apply recency weights
 #         sample_weights = np.linspace(0.1, 2.0, len(X))
-        
+
 #         # Train model
 #         model = train_prediction_model(X, y, sample_weights)
-        
+
 #         # Analyze patterns and frequencies
 #         patterns = analyze_patterns(numbers_df)
 #         frequency_dict = analyze_frequency(numbers_df.values.tolist(), game.total_numbers)
 #         hot_numbers = get_hot_numbers(frequency_dict, limit=15)
-        
+
 #         # Generate predictions
 #         last_features = create_features(numbers_df.iloc[-1:])
 #         predictions = []
 #         attempts = 0
-#         max_attempts = num_tickets * 3
-        
+#         max_attempts = num_tickets * 5  # Increased attempts to ensure diversity
+
 #         while len(predictions) < num_tickets and attempts < max_attempts:
 #             numbers, score = generate_candidate_numbers(
 #                 model, last_features, game, hot_numbers, patterns
 #             )
-            
-#             # Check if prediction is unique
-#             if numbers not in predictions:
+#             numbers_set = set(numbers)
+
+#             # Ensure prediction is unique and diverse
+#             is_diverse = all(
+#                 len(numbers_set.intersection(set(existing))) < game.numbers_to_choose // 2
+#                 for existing in predictions
+#             )
+#             if is_diverse and numbers not in predictions:
 #                 predictions.append(numbers)
+
 #             attempts += 1
-        
+
 #         # Fill remaining slots with random numbers if needed
 #         while len(predictions) < num_tickets:
 #             numbers = sorted(random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose))
-#             if numbers not in predictions:
+#             numbers_set = set(numbers)
+#             is_diverse = all(
+#                 len(numbers_set.intersection(set(existing))) < game.numbers_to_choose // 2
+#                 for existing in predictions
+#             )
+#             if is_diverse and numbers not in predictions:
 #                 predictions.append(numbers)
-        
+
 #         return predictions[0] if num_tickets == 1 else predictions
-        
+
 #     except Exception as e:
 #         print(f"Error in AI generation: {str(e)}")
 #         # Fallback to random generation
@@ -189,6 +356,14 @@ def generate_ai_numbers(game, num_tickets=1):
 #             if numbers not in predictions:
 #                 predictions.append(numbers)
 #         return predictions[0] if num_tickets == 1 else predictions
+
+
+
+
+
+
+
+
 
 
 
