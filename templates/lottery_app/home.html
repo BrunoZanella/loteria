@@ -50,7 +50,7 @@
         </div>
     {% endif %}
 
-    <div id="loadingModal" class="modal fade" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true">
+    <div id="loadingModal" class="modal fade" tabindex="-1" aria-labelledby="loadingModalLabel" style="display: block;" inert>
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-body text-center">
@@ -65,6 +65,7 @@
             </div>
         </div>
     </div>
+    
 
     <style>
         .fixed-buttons {
@@ -199,7 +200,7 @@
                     element.classList.add('selected');
                 }
             }
-            
+
             function generateNumbers() {
                 if (!currentGame || !methodSelect.value) return;
 

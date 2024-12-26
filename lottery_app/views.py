@@ -11,6 +11,7 @@ import json
 from django.core.cache import cache
 from datetime import datetime
 from django.contrib.auth import login, logout
+import time
 
 def user_logout(request):
     logout(request)
@@ -94,17 +95,18 @@ def generate_numbers(request):
             return JsonResponse({'numbers': [numbers]})  # Return as list for consistency
         elif method == 'auto':
             # Generate unique random combinations
+            time.sleep(3)  # Atraso de 1 segundo para simular um tempo maior de processamento
             predictions = []
             while len(predictions) < num_tickets:
                 numbers = random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose)
-                if sorted(numbers) not in predictions:
-                    predictions.append(sorted(numbers))
+                if numbers not in predictions:  # Não precisa de sorted(), porque números já estão aleatórios
+                    predictions.extend(numbers)  # Use extend para adicionar os números diretamente
+            
             return JsonResponse({'numbers': predictions})
         else:  # AI method
             predictions = generate_ai_numbers(game, num_tickets)
             if not isinstance(predictions, list):
                 predictions = [predictions]
-            print('predictions',predictions)
             return JsonResponse({'numbers': predictions})
     
     return JsonResponse({'error': 'Invalid request'}, status=400)

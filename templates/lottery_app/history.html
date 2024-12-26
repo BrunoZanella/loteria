@@ -35,6 +35,7 @@
                                     <span>{{ ticket.created_at|date:"d/m/Y H:i" }}</span>
                                     <span>Concurso: {{ ticket.concurso }}</span>
                                 </div>
+                                
                             </div>
                         </div>
                         
@@ -45,17 +46,25 @@
                                         <span class="lottery-number awaiting">{{ number }}</span>
                                     {% endfor %}
                                 {% else %}
-                                    {% with result=ticket.check_matches %}
-                                        {% for number in ticket.numbers %}
-                                            {% if number in result.0 %}
-                                                <span class="lottery-number match">{{ number }}</span>
-                                            {% else %}
-                                                <span class="lottery-number no-match">{{ number }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% endwith %}
+                                    <div class="numbers">
+                                        {% with result=ticket.check_matches %}
+                                            {% for number in ticket.numbers %}
+                                                {% if number in result.0 %}
+                                                    <span class="lottery-number match">{{ number }}</span>
+                                                {% else %}
+                                                    <span class="lottery-number no-match">{{ number }}</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                            
+                                            <!-- Exibe a quantidade de acertos abaixo dos números -->
+                                            <div class="acertos mt-2">
+                                                <strong>Acertos: {{ result.0|length }} de {{ ticket.game.numbers_to_choose }}</strong>
+                                            </div>
+                                        {% endwith %}
+                                    </div>
                                 {% endif %}
                             </div>
+                            
                             <div class="ticket-footer d-flex justify-content-between align-items-center mt-2">
                                 <span class="badge method-badge">{{ ticket.get_generation_method_display }}</span>
                                 {% if not ticket.sorteados %}
@@ -157,6 +166,12 @@
             height: 24px;
             font-size: 0.7rem;
         }
+    }
+    .acertos {
+        text-align: center;
+        font-size: 14px; /* Tamanho da fonte para a quantidade de acertos */
+        font-weight: bold;
+        color: #333; /* Cor do texto */
     }
 </style>
 {% endblock %}
