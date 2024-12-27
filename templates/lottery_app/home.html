@@ -15,24 +15,63 @@
             <div class="card-body">
                 <form id="lotteryForm">
                     {% csrf_token %}
-                    {{ form|crispy }}
+                    <div class="mb-3">
+                        {{ form.game|as_crispy_field }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.number_of_tickets|as_crispy_field }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_generation_method" class="form-label">Método de Geração</label>
+                        <select name="generation_method" id="id_generation_method" class="form-select" 
+                                data-has-subscription="{{ has_subscription|yesno:'true,false' }}">
+                            <option value="manual">Manual</option>
+                            <option value="auto">Automático</option>
+                            <option value="ai" {% if not has_subscription %}disabled{% endif %}>
+                                Inteligência Artificial {% if not has_subscription %}(Requer Assinatura){% endif %}
+                            </option>
+                        </select>
+                        {% if not has_subscription %}
+                            <div class="form-text text-info mt-2">
+                                <i class="fas fa-info-circle"></i>
+                                Para usar a Inteligência Artificial, você precisa de uma 
+                                <a href="{% url 'subscription_status' %}">assinatura ativa</a>.
+                            </div>
+                        {% endif %}
+                    </div>
                     
                     <div id="ticketsContainer">
                         <!-- Tickets will be dynamically added here -->
                     </div>
+                    <!-- Botões fixos -->
+                    <div class="fixed-buttons">
+                        <button type="button" id="generateBtn" class="btn btn-primary mb-2">
+                            <i class="fas fa-dice me-2"></i>Gerar Números
+                        </button>
+                        <button type="button" id="saveBtn" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>Salvar Jogos
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
-        
-        <!-- Botões fixos -->
-        <div class="fixed-buttons">
-            <button type="button" id="generateBtn" class="btn btn-primary mb-2">
-                <i class="fas fa-dice me-2"></i>Gerar Números
-            </button>
-            <button type="button" id="saveBtn" class="btn btn-success">
-                <i class="fas fa-save me-2"></i>Salvar Jogos
-            </button>
-        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const methodSelect = document.getElementById('id_generation_method');
+                const hasSubscription = methodSelect.dataset.hasSubscription === 'true';
+
+                methodSelect.addEventListener('change', function() {
+                    if (this.value === 'ai' && !hasSubscription) {
+                        this.value = 'manual';
+                        alert('Para usar a Inteligência Artificial, você precisa de uma assinatura ativa.');
+                        window.location.href = "{% url 'subscription_status' %}";
+                    }
+                });
+
+                // Rest of your existing JavaScript...
+            });
+        </script>
     
     {% else %}
         <div class="text-center py-5">
@@ -85,6 +124,10 @@
         }
         
     </style>
+
+
+
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const gameSelect = document.querySelector('#id_game');
@@ -93,7 +136,8 @@
             const generateBtn = document.querySelector('#generateBtn');
             const saveBtn = document.querySelector('#saveBtn');
             const numTicketsInput = document.querySelector('#id_number_of_tickets');
-            
+
+
             let currentGame = null;
             let tickets = [];
 

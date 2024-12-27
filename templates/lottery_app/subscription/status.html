@@ -1,9 +1,8 @@
+
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
 {% load crispy_forms_tags %}
 
 {% block content %}
-
 <div class="card">
     <div class="card-header">
         <h4 class="mb-0">Status da Assinatura</h4>
@@ -20,16 +19,6 @@
                 <p>Ative sua assinatura para ter acesso a todos os recursos!</p>
             </div>
             
-            <div class="mt-4">
-                <h5>Tem um cupom?</h5>
-                <form method="post" action="{% url 'apply_coupon' %}">
-                    {% csrf_token %}
-                    {{ coupon_form|crispy }}
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-ticket-alt me-2"></i>Aplicar Cupom
-                    </button>
-                </form>
-            </div>
             <div class="card mt-3">
                 <div class="card-header">
                     <h5 class="mb-0">Plano Mensal</h5>
@@ -44,23 +33,17 @@
                 </div>
             </div>
 
+            <div class="mt-4">
+                <h5>Tem um cupom?</h5>
+                <form method="post" action="{% url 'apply_coupon' %}">
+                    {% csrf_token %}
+                    {{ coupon_form|crispy }}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-ticket-alt me-2"></i>Aplicar Cupom
+                    </button>
+                </form>
+            </div>
         {% endif %}
-    </div>
-</div>
-
-
-<div class="card">
-    <div class="card-header">
-        <h4 class="mb-0">Meu Perfil</h4>
-    </div>
-    <div class="card-body">
-        <form method="post">
-            {% csrf_token %}
-            {{ form|crispy }}
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save me-2"></i>Salvar Alterações
-            </button>
-        </form>
     </div>
 </div>
 {% endblock %}

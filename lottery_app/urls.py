@@ -12,4 +12,7 @@ urlpatterns = [
     path('api/game/<int:game_id>/', views.game_info, name='game_info'),
     path('start_tasks/', views.start_background_tasks, name='start_tasks'),
     path('accounts/logout/', views.user_logout, name='logout'),
+    path('subscription/', views.subscription_status, name='subscription_status'),
+    path('subscription/apply-coupon/', views.apply_coupon, name='apply_coupon'),
+
 ]

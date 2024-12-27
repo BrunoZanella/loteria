@@ -53,6 +53,7 @@ def check_lottery_updates():
 
     games_to_check = list(LotteryGame.objects.all())  # Carrega todos os jogos
     games_verified = []  # Lista de jogos verificados (concursos já atualizados)
+
     while games_to_check and now < end_time:
         remaining_games = []
 
@@ -65,16 +66,18 @@ def check_lottery_updates():
                 if game.name in games_verified:
                     continue
 
-                # Consulte a API para obter o concurso mais recente
-                formatted_name = format_game_name(game.name)
-                api_url = f"https://loteriascaixa-api.herokuapp.com/api/{formatted_name}/latest"
+                # Incrementa o concurso para buscar o próximo
+                next_concurso = db_concurso + 1
+
+                # Consulte a nova API para obter o próximo concurso
+                formatted_name = format_game_name(game.name).lower()
+                api_url = f"https://servicebus2.caixa.gov.br/portaldeloterias/api/{formatted_name}/{next_concurso}"
                 response = requests.get(api_url)
 
                 if response.status_code == 200:
-
                     data = response.json()
-                    api_concurso = int(data.get('concurso', 0))
-                    api_dezenas = ','.join(data.get('dezenas', []))
+                    api_concurso = int(data.get('numero', 0))
+                    api_dezenas = ','.join(data.get('listaDezenas', []))
 
                     # Se o concurso da API for maior, atualize o banco de dados
                     if api_concurso > db_concurso:
@@ -86,8 +89,17 @@ def check_lottery_updates():
                     elif api_concurso == db_concurso:
                         print(f"Concurso do jogo {game.name} já está atualizado. Aguardando 5 minutos para nova tentativa.")
                         remaining_games.append(game)  # Reagendar a verificação após 5 minutos
+                elif response.status_code == 404:
+                    # Concurso ainda não disponível
+                    print(f"Concurso {next_concurso} para o jogo {game.name} ainda não foi lançado. Tentando novamente mais tarde.")
+                    remaining_games.append(game)
                 else:
-                    print(f"Erro ao acessar a API para {game.name}: {response.status_code}")
+                    # Outros erros
+                    error_message = response.text
+                    if "Ocorreu um erro inesperado" in error_message:
+                        print(f"O concurso {next_concurso} para o jogo {game.name} ainda não saiu. Verifique novamente mais tarde.")
+                    else:
+                        print(f"Erro ao acessar a API para {game.name} (Concurso {next_concurso}): {response.status_code}")
                     remaining_games.append(game)  # Tentar novamente mais tarde
             except Exception as e:
                 print(f"Erro ao verificar atualizações para {game.name}: {str(e)}")
@@ -107,6 +119,7 @@ def check_lottery_updates():
         print("Limpando lista de jogos verificados para o próximo ciclo.")
         games_verified.clear()  # Limpa a lista para o próximo ciclo
         executar_script()
+
 
 def start_scheduler():
     """

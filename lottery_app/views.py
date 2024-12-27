@@ -3,8 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.contrib.auth.forms import UserCreationForm
-from .models import LotteryGame, LotteryTicket
-from .forms import LotteryPlayForm, UserUpdateForm
+from .models import LotteryGame, LotteryTicket, Subscription, Coupon, CouponUse
+from .forms import LotteryPlayForm, UserUpdateForm, CouponForm
 from .utils.number_analysis import generate_ai_numbers
 import random
 import json
@@ -12,6 +12,10 @@ from django.core.cache import cache
 from datetime import datetime
 from django.contrib.auth import login, logout
 import time
+from decimal import Decimal
+from .decorators import subscription_required
+from django.urls import reverse
+
 
 def user_logout(request):
     logout(request)
@@ -29,17 +33,38 @@ def register(request):
         form = UserCreationForm()
     return render(request, 'registration/register.html', {'form': form})
 
+# @login_required
+# def profile(request):
+#     if request.method == 'POST':
+#         form = UserUpdateForm(request.POST, instance=request.user)
+#         if form.is_valid():
+#             form.save()
+#             messages.success(request, 'Seu perfil foi atualizado com sucesso!')
+#             return redirect('profile')
+#     else:
+#         form = UserUpdateForm(instance=request.user)
+#     return render(request, 'lottery_app/profile.html', {'form': form})
+
 @login_required
 def profile(request):
-    if request.method == 'POST':
-        form = UserUpdateForm(request.POST, instance=request.user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Seu perfil foi atualizado com sucesso!')
-            return redirect('profile')
-    else:
-        form = UserUpdateForm(instance=request.user)
-    return render(request, 'lottery_app/profile.html', {'form': form})
+    # Obtém a assinatura do usuário
+    subscription = Subscription.objects.filter(user=request.user).first()
+
+    # Se a assinatura não for válida, exibe a mensagem de erro, mas mantém o formulário
+    is_active = subscription.is_valid() if subscription else False
+
+    # Se o usuário não tiver uma assinatura ativa, o formulário de perfil também será renderizado
+    form = UserUpdateForm(instance=request.user)
+
+    context = {
+        'subscription': subscription,
+        'is_active': is_active,
+        'coupon_form': CouponForm(),
+        'form': form
+    }
+
+    return render(request, 'lottery_app/profile.html', context)
+
 
 
 def home(request):
@@ -56,8 +81,17 @@ def home(request):
         # Armazena a data da última execução no cache
         cache.set("last_scheduler_run_date", today, timeout=86400)  # Expira após 24 horas
 
+    # Verifica se o usuário está autenticado
+    has_subscription = False
+    if request.user.is_authenticated:
+        # Verifica o status da assinatura
+        subscription = Subscription.objects.filter(user=request.user).first()
+        has_subscription = subscription.is_valid() if subscription else False
+    
     return render(request, 'lottery_app/home.html', {
         'form': LotteryPlayForm(),
+        'has_subscription': has_subscription,
+        'is_authenticated': request.user.is_authenticated  # Passa o status de autenticação
     })
 
 
@@ -108,9 +142,15 @@ def generate_numbers(request):
             if not isinstance(predictions, list):
                 predictions = [predictions]
             return JsonResponse({'numbers': predictions})
-    
+
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
+        # else:  # AI method
+        #     predictions = generate_ai_numbers(game, num_tickets)
+        #     if not isinstance(predictions, list):
+        #         predictions = [predictions]
+        #     return JsonResponse({'numbers': predictions})
+        
 
 @login_required
 def save_ticket(request):
@@ -184,3 +224,55 @@ def start_background_tasks(request):
         thread_scheduler.start()
 
     return JsonResponse({"status": "Tarefas em segundo plano iniciadas"})
+
+
+
+
+@login_required
+def subscription_status(request):
+    subscription = Subscription.objects.filter(user=request.user).first()
+    context = {
+        'subscription': subscription,
+        'is_active': subscription.is_valid() if subscription else False,
+        'coupon_form': CouponForm()
+    }
+    return render(request, 'lottery_app/profile.html', context)
+
+@login_required
+def apply_coupon(request):
+    if request.method == 'POST':
+        form = CouponForm(request.POST)
+        if form.is_valid():
+            code = form.cleaned_data['code']
+            coupon = Coupon.objects.get(code=code)
+            
+            # Valor mensal padrão
+            monthly_price = Decimal('3.00')
+            
+            # Calcula desconto
+            discount = coupon.calculate_discount(monthly_price)
+            final_price = monthly_price - discount
+            
+            # Se o cupom for de 100% ou o preço final for 0
+            if final_price <= Decimal('0.00'):
+                subscription, created = Subscription.objects.get_or_create(user=request.user)
+                subscription.activate(months=1)
+                
+                # Registra uso do cupom
+                CouponUse.objects.create(
+                    coupon=coupon,
+                    user=request.user,
+                    subscription=subscription
+                )
+                
+                coupon.use()
+                messages.success(request, 'Cupom aplicado com sucesso! Sua assinatura está ativa.')
+            else:
+                # Aqui você pode redirecionar para a página de pagamento
+                # com o preço com desconto
+                messages.info(request, f'Valor com desconto: R$ {final_price:.2f}')
+            
+            return redirect('subscription_status')
+    
+    messages.error(request, 'Cupom inválido.')
+    return redirect('subscription_status')
