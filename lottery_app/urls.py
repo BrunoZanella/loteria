@@ -19,5 +19,5 @@ urlpatterns = [
     path('payment/success/', views.payment_success, name='payment_success'),
     path('payment/failure/', views.payment_failure, name='payment_failure'),
     path('payment/pending/', views.payment_pending, name='payment_pending'),
-    path('subscription/create/', views.create_subscription, name='create_subscription'),
+#    path('subscription/create/', views.create_subscription, name='create_subscription'),
 ]
