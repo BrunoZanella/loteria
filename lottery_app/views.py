@@ -9,14 +9,12 @@ from .utils.number_analysis import generate_ai_numbers
 import random
 import json
 from django.core.cache import cache
+from datetime import datetime
 from django.contrib.auth import login, logout
 import time
 from decimal import Decimal
 from .decorators import subscription_required
 from django.urls import reverse
-import mercadopago
-from django.conf import settings
-from datetime import datetime, timedelta
 
 from lottery_app.utils.mercadopago import create_payment_preference, check_payment_status
 
@@ -49,46 +47,7 @@ def payment_pending(request):
     messages.warning(request, 'Seu pagamento está pendente de aprovação.')
     return render(request, 'lottery_app/payment/pending.html')
 
-def create_subscription(request):
-    try:
-        # Configuração do Mercado Pago
-        mp = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
 
-        # Dados da assinatura
-        subscription_data = {
-            "preapproval_plan_id": "2c938084726fca480172750000000000",  # ID do plano
-            "reason": "Assinatura Premium",  # Motivo
-            "external_reference": "SUBS-USER-123",  # Referência do sistema
-            "payer_email": "usuario@teste.com",  # Email do usuário
-            "auto_recurring": {
-                "frequency": 1,
-                "frequency_type": "months",
-                "transaction_amount": 50,  # Valor da assinatura
-                "currency_id": "BRL",  # Moeda
-                "start_date": datetime.now().isoformat(),  # Data de início
-                "end_date": (datetime.now() + timedelta(days=365)).isoformat(),  # Data de fim (1 ano)
-            },
-            "back_url": settings.MERCADOPAGO_BACK_URL,
-            "status": "authorized",
-        }
-
-        # Criação da assinatura
-        response = mp.preapproval().create(subscription_data)
-
-        # Retorno da resposta
-        if response["status"] in [200, 201]:
-            return JsonResponse({
-                "success": True,
-                "subscription_url": response["response"]["init_point"],
-            })
-        else:
-            return JsonResponse({
-                "success": False,
-                "error": response["response"]
-            })
-
-    except Exception as e:
-        return JsonResponse({"success": False, "error": str(e)})
 
 
 
