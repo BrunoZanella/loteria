@@ -15,7 +15,6 @@ import time
 from decimal import Decimal
 from .decorators import subscription_required
 from django.urls import reverse
-
 from lottery_app.utils.mercadopago import create_payment_preference, check_payment_status
 
 @login_required
@@ -23,26 +22,35 @@ def create_payment(request):
     preference = create_payment_preference(request)
     return redirect(preference['init_point'])
 
-@login_required
+#@login_required
 def payment_success(request):
     payment_id = request.GET.get('payment_id')
     if payment_id:
         payment_info = check_payment_status(payment_id)
         if payment_info and payment_info['status'] == 'approved':
-            subscription, created = Subscription.objects.get_or_create(user=request.user)
-            subscription.activate(months=1)
+            external_reference = payment_info.get("external_reference")
+            
+            # Use o external_reference para confirmar e ativar a assinatura
+            # Exemplo:
+            # subscription = Subscription.objects.filter(user=request.user).first()
+            # if subscription and external_reference:
+            #     subscription.activate(months=1)
+
             messages.success(request, 'Pagamento aprovado! Sua assinatura está ativa.')
             return render(request, 'lottery_app/payment/success.html')
     
     messages.error(request, 'Não foi possível confirmar o pagamento.')
     return redirect('subscription_status')
 
-@login_required
+
+
+
+#@login_required
 def payment_failure(request):
     messages.error(request, 'O pagamento não foi aprovado. Por favor, tente novamente.')
     return render(request, 'lottery_app/payment/failure.html')
 
-@login_required
+#@login_required
 def payment_pending(request):
     messages.warning(request, 'Seu pagamento está pendente de aprovação.')
     return render(request, 'lottery_app/payment/pending.html')
