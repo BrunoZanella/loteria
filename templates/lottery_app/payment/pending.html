@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="card">
+        <div class="card-body text-center">
+            <div class="mb-4">
+                <i class="fas fa-clock text-warning" style="font-size: 4rem;"></i>
+            </div>
+            <h2 class="mb-3">Pagamento Pendente</h2>
+            <p class="lead mb-4">Seu pagamento está sendo processado.</p>
+            <div class="mb-4">
+                <p>O que acontece agora:</p>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-info-circle me-2"></i>Aguarde a confirmação do pagamento</li>
+                    <li><i class="fas fa-info-circle me-2"></i>Você receberá um email quando for aprovado</li>
+                    <li><i class="fas fa-info-circle me-2"></i>Sua assinatura será ativada automaticamente</li>
+                </ul>
+            </div>
+            <a href="{% url 'home' %}" class="btn btn-primary">
+                <i class="fas fa-home me-2"></i>Ir para Página Inicial
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

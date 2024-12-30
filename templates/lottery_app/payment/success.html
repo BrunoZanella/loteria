@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="card">
+        <div class="card-body text-center">
+            <div class="mb-4">
+                <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+            </div>
+            <h2 class="mb-3">Pagamento Aprovado!</h2>
+            <p class="lead mb-4">Sua assinatura foi ativada com sucesso.</p>
+            <div class="mb-4">
+                <p>Agora você tem acesso a todos os recursos premium:</p>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success me-2"></i>Inteligência Artificial</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Análise avançada de padrões</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Suporte prioritário</li>
+                </ul>
+            </div>
+            <a href="{% url 'home' %}" class="btn btn-primary">
+                <i class="fas fa-home me-2"></i>Ir para Página Inicial
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

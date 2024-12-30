@@ -20,16 +20,6 @@
                 <p>Ative sua assinatura para ter acesso a todos os recursos!</p>
             </div>
             
-            <div class="mt-4">
-                <h5>Tem um cupom?</h5>
-                <form method="post" action="{% url 'apply_coupon' %}">
-                    {% csrf_token %}
-                    {{ coupon_form|crispy }}
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-ticket-alt me-2"></i>Aplicar Cupom
-                    </button>
-                </form>
-            </div>
             <div class="card mt-3">
                 <div class="card-header">
                     <h5 class="mb-0">Plano Mensal</h5>
@@ -41,9 +31,23 @@
                         <li><i class="fas fa-check text-success me-2"></i>Análise avançada de padrões</li>
                         <li><i class="fas fa-check text-success me-2"></i>Suporte prioritário</li>
                     </ul>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'create_payment' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-credit-card me-2"></i>Assinar Agora
+                        </a>
+                    </div>
                 </div>
             </div>
-
+            <div class="mt-4">
+                <h5>Tem um cupom?</h5>
+                <form method="post" action="{% url 'apply_coupon' %}">
+                    {% csrf_token %}
+                    {{ coupon_form|crispy }}
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-ticket-alt me-2"></i>Aplicar Cupom
+                    </button>
+                </form>
+            </div>
         {% endif %}
     </div>
 </div>
@@ -57,6 +61,9 @@
         <form method="post">
             {% csrf_token %}
             {{ form|crispy }}
+            <p class="mb-2">
+                <a href="{% url 'password_reset' %}">Esqueceu sua senha?</a>
+            </p>
             <button type="submit" class="btn btn-primary">
                 <i class="fas fa-save me-2"></i>Salvar Alterações
             </button>

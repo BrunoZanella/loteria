@@ -16,6 +16,40 @@ from decimal import Decimal
 from .decorators import subscription_required
 from django.urls import reverse
 
+from lottery_app.utils.mercadopago import create_payment_preference, check_payment_status
+
+@login_required
+def create_payment(request):
+    preference = create_payment_preference(request)
+    return redirect(preference['init_point'])
+
+@login_required
+def payment_success(request):
+    payment_id = request.GET.get('payment_id')
+    if payment_id:
+        payment_info = check_payment_status(payment_id)
+        if payment_info and payment_info['status'] == 'approved':
+            subscription, created = Subscription.objects.get_or_create(user=request.user)
+            subscription.activate(months=1)
+            messages.success(request, 'Pagamento aprovado! Sua assinatura está ativa.')
+            return render(request, 'lottery_app/payment/success.html')
+    
+    messages.error(request, 'Não foi possível confirmar o pagamento.')
+    return redirect('subscription_status')
+
+@login_required
+def payment_failure(request):
+    messages.error(request, 'O pagamento não foi aprovado. Por favor, tente novamente.')
+    return render(request, 'lottery_app/payment/failure.html')
+
+@login_required
+def payment_pending(request):
+    messages.warning(request, 'Seu pagamento está pendente de aprovação.')
+    return render(request, 'lottery_app/payment/pending.html')
+
+
+
+
 
 def user_logout(request):
     logout(request)
@@ -245,14 +279,14 @@ def apply_coupon(request):
         if form.is_valid():
             code = form.cleaned_data['code']
             coupon = Coupon.objects.get(code=code)
-            
+
             # Valor mensal padrão
             monthly_price = Decimal('3.00')
-            
+
             # Calcula desconto
             discount = coupon.calculate_discount(monthly_price)
             final_price = monthly_price - discount
-            
+
             # Se o cupom for de 100% ou o preço final for 0
             if final_price <= Decimal('0.00'):
                 subscription, created = Subscription.objects.get_or_create(user=request.user)
@@ -264,7 +298,7 @@ def apply_coupon(request):
                     user=request.user,
                     subscription=subscription
                 )
-                
+
                 coupon.use()
                 messages.success(request, 'Cupom aplicado com sucesso! Sua assinatura está ativa.')
             else:

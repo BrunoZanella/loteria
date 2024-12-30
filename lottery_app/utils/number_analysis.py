@@ -5,6 +5,16 @@ from .feature_engineering import create_features
 from .model_training import train_prediction_model
 from .pattern_analysis import analyze_patterns, evaluate_combination
 from .frequency_analysis import analyze_frequency, get_hot_numbers
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import TimeSeriesSplit
+import xgboost as xgb
+import random
+from typing import List, Tuple, Dict
+import logging
+
 
 def prepare_lottery_data(df):
     """Prepare lottery data for analysis"""
@@ -67,15 +77,7 @@ def generate_candidate_numbers(model, features, game, hot_numbers, patterns):
 
 
 
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import TimeSeriesSplit
-import xgboost as xgb
-import random
-from typing import List, Tuple, Dict
-import logging
+
 
 def generate_ai_numbers(game, num_tickets=1):
     """

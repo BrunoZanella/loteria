@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .btn { 
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Olá {{ user.first_name }},</h2>
+        <p>Sua assinatura irá expirar em {{ expiration_date }}.</p>
+        <p>Para continuar tendo acesso a todos os recursos, renove sua assinatura:</p>
+        <p>
+            <a href="https://mpago.la/28jA7Pe" class="btn">Renovar Assinatura</a>
+        </p>
+        <p>Se você já renovou, por favor ignore este email.</p>
+    </div>
+</body>
+</html>

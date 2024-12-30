@@ -15,4 +15,8 @@ urlpatterns = [
     path('subscription/', views.subscription_status, name='subscription_status'),
     path('subscription/apply-coupon/', views.apply_coupon, name='apply_coupon'),
 
+    path('payment/create/', views.create_payment, name='create_payment'),
+    path('payment/success/', views.payment_success, name='payment_success'),
+    path('payment/failure/', views.payment_failure, name='payment_failure'),
+    path('payment/pending/', views.payment_pending, name='payment_pending'),
 ]

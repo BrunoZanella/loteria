@@ -1,4 +1,3 @@
-
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 
@@ -30,11 +29,16 @@
                         <li><i class="fas fa-check text-success me-2"></i>Análise avançada de padrões</li>
                         <li><i class="fas fa-check text-success me-2"></i>Suporte prioritário</li>
                     </ul>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'create_payment' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-credit-card me-2"></i>Assinar Agora
+                        </a>
+                    </div>
                 </div>
             </div>
 
             <div class="mt-4">
-                <h5>Tem um cupom?</h5>
+                <h5>Tem um cupomm?</h5>
                 <form method="post" action="{% url 'apply_coupon' %}">
                     {% csrf_token %}
                     {{ coupon_form|crispy }}

@@ -30,7 +30,7 @@ X_FRAME_OPTIONS='SAMEORIGIN'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+#    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -42,11 +42,19 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'lottery_project.urls'
 
-#ALLOWED_HOSTS = ['192.168.15.96','10.0.6.169']
+ALLOWED_HOSTS = ['192.168.15.96','10.0.6.169']
 
-ALLOWED_HOSTS = ["*"]
-STATICSTORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-CSRF_TRUSTED_ORIGINS= ["https://loteria.up.railway.app"]
+# ALLOWED_HOSTS = ["*"]
+# STATICSTORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# CSRF_TRUSTED_ORIGINS= ["https://loteria.up.railway.app"]
+
+
+MERCADOPAGO_ACCESS_TOKEN = 'TEST-5548770472001035-123011-0044efc548fd55b9f3f7ca162b5ac69d-159068329'
+
+#producao
+#MERCADOPAGO_ACCESS_TOKEN = 'APP_USR-5548770472001035-123011-fa47860bf89bf59ca3ba3e9f3e8d7646-159068329'
+
+
 
 TEMPLATES = [
     {
