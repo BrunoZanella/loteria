@@ -188,6 +188,7 @@ def generate_numbers(request):
             
             return JsonResponse({'numbers': predictions})
         else:  # AI method
+            time.sleep(3)  # Atraso de 1 segundo para simular um tempo maior de processamento
             predictions = generate_ai_numbers(game, num_tickets)
             if not isinstance(predictions, list):
                 predictions = [predictions]
