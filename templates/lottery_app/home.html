@@ -247,10 +247,10 @@
 
             function generateNumbers() {
                 if (!currentGame || !methodSelect.value) return;
-
+            
                 // Show the loading modal
                 showLoading();
-
+            
                 const promises = tickets.map(() => {
                     const data = {
                         game_id: gameSelect.value,
@@ -266,21 +266,39 @@
                         body: JSON.stringify(data)
                     }).then(response => response.json());
                 });
-                
+            
                 Promise.all(promises).then(results => {
+                    let allTicketsFilled = true; // Flag para verificar se todos os tickets estão preenchidos
+                
                     results.forEach((data, index) => {
                         const ticket = tickets[index];
                         ticket.selectedNumbers = new Set(data.numbers);
                         
                         ticket.numbersDiv.querySelectorAll('.lottery-number').forEach(el => {
                             const num = parseInt(el.textContent);
-                            el.classList.toggle('selected', ticket.selectedNumbers.has(num));
+                            const isSelected = ticket.selectedNumbers.has(num);
+                            el.classList.toggle('selected', isSelected);
                         });
+                
+                        // Verifique se o ticket tem números suficientes selecionados
+                        if (ticket.selectedNumbers.size !== currentGame.numbers_to_choose) {
+                            allTicketsFilled = false;
+                        }
                     });
-                // Hide the loading modal after the process is done
-                hideLoading();
+                
+                    // Esconde o modal apenas se todos os tickets estiverem preenchidos
+                    if (allTicketsFilled) {
+                        hideLoading();
+                    } else {
+                        console.warn('Nem todos os tickets estão preenchidos corretamente.');
+                    }
+                }).catch(error => {
+                    console.error('Erro ao gerar números:', error);
+                    hideLoading(); // Garantir que o modal seja escondido mesmo com erro
                 });
+                
             }
+            
             
             function saveTickets() {
                 if (!currentGame) return;

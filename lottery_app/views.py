@@ -59,6 +59,14 @@ def payment_pending(request):
 
 
 
+
+
+
+
+
+
+
+
 def user_logout(request):
     logout(request)
     messages.success(request, 'Você saiu com sucesso!')
@@ -260,7 +268,7 @@ def start_background_tasks(request):
     Inicia as tarefas em segundo plano.
     """
     if not hasattr(threading.current_thread(), "_scheduler_thread"):
-        print("Iniciando agendador...")
+        print("\nIniciando agendador...")
         thread_scheduler = threading.Thread(target=start_scheduler, daemon=True)
         threading.current_thread()._scheduler_thread = thread_scheduler
         thread_scheduler.start()

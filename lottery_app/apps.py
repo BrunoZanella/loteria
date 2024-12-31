@@ -25,7 +25,7 @@ class LotteryAppConfig(AppConfig):
 
     def ready(self):
         if os.environ.get("RUN_MAIN", None) == "true":
-            print("Iniciando o agendador no apps.py...")
+            print("\nIniciando o agendador no apps.py...")
             start_background_scheduler()
 
 

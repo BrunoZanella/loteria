@@ -20,4 +20,6 @@ urlpatterns = [
     path('payment/failure/', views.payment_failure, name='payment_failure'),
     path('payment/pending/', views.payment_pending, name='payment_pending'),
 #    path('subscription/create/', views.create_subscription, name='create_subscription'),
+
+
 ]

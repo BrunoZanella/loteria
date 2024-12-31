@@ -6,11 +6,13 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import unidecode  # Certifique-se de instalar: pip install unidecode
 from lottery_app.baixar_jogos import executar_script
+import pandas as pd
+import os
 
 SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
 
 # Defina as variáveis de horário de início e fim aqui
-START_TIME_HOUR = 21
+START_TIME_HOUR = 20
 END_TIME_HOUR = 23
 END_TIME_MINUTE = 59
 
@@ -35,6 +37,99 @@ def get_current_concurso(game_name):
     return 0
 
 
+
+def check_lottery_updates():
+    """
+    Função principal para verificar e atualizar os concursos da loteria.
+    """
+    from lottery_app.models import LotteryGame, LotteryTicket
+
+    now = datetime.now(tz=SAO_PAULO_TZ)
+    start_time = now.replace(hour=START_TIME_HOUR, minute=0, second=0, microsecond=0)
+    end_time = now.replace(hour=END_TIME_HOUR, minute=END_TIME_MINUTE, second=0, microsecond=0)
+
+    if now >= end_time:
+        print("Fora do intervalo de verificação (10:00 - 11:00).")
+        return
+
+    print(f"Iniciando verificação às {now.strftime('%Y-%m-%d %H:%M:%S')}...")
+
+    games_to_check = LotteryGame.objects.all()  # Carrega todos os jogos
+
+    for game in games_to_check:
+        now = datetime.now(tz=SAO_PAULO_TZ)
+        if now >= end_time:
+            print("Fim do período de verificação. Encerrando execução.")
+            executar_script()
+            return
+
+        print(f"Verificando jogo: {game.name}")
+        tickets_to_check = (
+            LotteryTicket.objects.filter(game=game, sorteados__isnull=True)
+            .values_list("concurso", flat=True)
+            .distinct()
+            .order_by("concurso")
+        )
+
+        if not tickets_to_check:
+            print(f"Nenhum concurso pendente para o jogo {game.name}.")
+            continue
+
+        for concurso in tickets_to_check:
+            now = datetime.now(tz=SAO_PAULO_TZ)
+            if now >= end_time:
+                print("Fim do período de verificação. Encerrando execução.")
+                return
+
+            formatted_name = format_game_name(game.name).lower()
+            api_url = f"https://servicebus2.caixa.gov.br/portaldeloterias/api/{formatted_name}/{concurso}"
+            print(f"Consultando API: {api_url}")
+
+            try:
+                response = requests.get(api_url)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    api_concurso = int(data.get("numero", 0))
+                    api_dezenas = ",".join(data.get("listaDezenas", []))
+
+                    if api_concurso == concurso:
+                        print(f"Atualizando jogo {game.name} para o concurso {api_concurso}.")
+                        game.concurso = api_concurso
+                        game.sorteados = api_dezenas
+                        game.save()
+
+                        tickets = LotteryTicket.objects.filter(game=game, concurso=concurso)
+                        for ticket in tickets:
+                            ticket.sorteados = api_dezenas
+                            ticket.save()
+                    else:
+                        print(f"Concurso {concurso} para o jogo {game.name} ainda não disponível.")
+                elif response.status_code == 404:
+                    print(f"Concurso {concurso} para o jogo {game.name} não encontrado. Tentando novamente mais tarde.")
+                elif response.status_code == 500:
+                    print(f"Concurso {concurso} para o jogo {game.name}. Ocorreu um erro inesperado.")
+                else:
+                    print(f"Erro na API para o jogo {game.name}, concurso {concurso}: {response.status_code}")
+            except Exception as e:
+                print(f"Erro ao verificar o jogo {game.name}, concurso {concurso}: {str(e)}")
+
+            # Pausa de 30 segundos entre requisições
+            time.sleep(30)
+
+    print("Todos os concursos pendentes foram verificados ou atingiu o horário limite.")
+#    executar_script()
+
+    # Limpeza da lista de verificados após as 11:00
+    if now >= end_time:
+        print("Limpando lista de jogos verificados para o próximo ciclo.")
+        executar_script()
+
+
+
+
+
+'''
 def check_lottery_updates():
     """
     Função principal para verificar e atualizar os concursos da loteria.
@@ -119,19 +214,84 @@ def check_lottery_updates():
         print("Limpando lista de jogos verificados para o próximo ciclo.")
         games_verified.clear()  # Limpa a lista para o próximo ciclo
         executar_script()
+'''
+
+
+
+
+
+
+import joblib
+import os
+
+def train_all_models():
+    """
+    Treina modelos para todos os jogos utilizando os arquivos CSV disponíveis.
+    """
+    from lottery_app.models import LotteryGame
+    from lottery_app.utils.number_analysis import (
+        prepare_enhanced_lottery_data,
+        create_advanced_features,
+        train_ensemble_models
+    )
+
+    try:
+        # Pasta onde os modelos serão salvos
+        models_dir = "trained_models"
+        if not os.path.exists(models_dir):
+            os.makedirs(models_dir)
+            print(f"Pasta {models_dir} criada para salvar os modelos.")
+
+        games = LotteryGame.objects.all()
+        for game in games:
+            print(f"Treinando modelo para o jogo: {game.name}")
+
+            # Verificar se os dados históricos existem
+            if not game.historical_data or not os.path.exists(game.historical_data.path):
+                print(f"Dados históricos não encontrados para o jogo {game.name}.")
+                continue
+
+            # Carregar dados históricos
+            df = pd.read_csv(game.historical_data.path)
+            numbers_df = prepare_enhanced_lottery_data(df)
+
+            # Criar features avançadas
+            X, y = create_advanced_features(numbers_df)
+
+            # Treinar ensemble de modelos
+            models = train_ensemble_models(X, y)
+
+            # Salvar os modelos treinados
+            model_path = os.path.join(models_dir, f"{game.name.lower()}_rf_model.pkl")
+            scaler_path = os.path.join(models_dir, f"{game.name.lower()}_scaler.pkl")
+            
+            if os.path.exists(model_path):
+                print(f"Modelo antigo encontrado para {game.name}. Substituindo pelo novo.")
+            
+            joblib.dump(models['rf'], model_path)  # Salvar o modelo RandomForest
+            joblib.dump(models['scaler'], scaler_path)  # Salvar o escalador
+            print(f"Novo modelo salvo em {model_path} e escalador salvo em {scaler_path}")
+
+    except Exception as e:
+        print(f"Erro ao treinar os modelos: {str(e)}")
+
 
 
 def start_scheduler():
     """
     Configura e inicia o agendador.
     """
-    schedule.every().day.at(f"{START_TIME_HOUR:02d}:00").do(check_lottery_updates)
+    schedule.every().day.at(f"{START_TIME_HOUR:02d}:00").do(train_all_models)  # Treinar modelos
+
+#    schedule.every().day.at(f"{START_TIME_HOUR:02d}:00").do(check_lottery_updates)
     print("Agendador iniciado. Aguardando tarefas...")
+    train_all_models()
 
     while True:
         # Verifica se já passou das 10:00 mas ainda está antes das 11:00
         now = datetime.now(tz=SAO_PAULO_TZ)
         if now.hour >= START_TIME_HOUR and now < now.replace(hour=END_TIME_HOUR, minute=END_TIME_MINUTE, second=0, microsecond=0):
+        #    train_all_models()
             check_lottery_updates()
         schedule.run_pending()
         time.sleep(1)  # Para evitar uso excessivo de CPU
@@ -144,4 +304,4 @@ def start_background_scheduler():
     
     thread = threading.Thread(target=start_scheduler, daemon=True)
     thread.start()
-    print("Thread do agendador iniciada.")
+    print("Thread do agendador iniciada.\n")

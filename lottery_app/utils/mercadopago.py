@@ -102,3 +102,7 @@ def send_expiration_notification(user):
         recipient_list=[user.email],
         fail_silently=False,
     )
+
+
+
+

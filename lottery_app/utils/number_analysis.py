@@ -78,7 +78,7 @@ def generate_candidate_numbers(model, features, game, hot_numbers, patterns):
 
 
 
-
+'''
 def generate_ai_numbers(game, num_tickets=1):
     """
     Generate AI-powered lottery number predictions with diversification
@@ -287,6 +287,261 @@ def fallback_generation(game, num_tickets: int) -> List[List[int]]:
         if numbers not in predictions:
             predictions.append(numbers)
     return predictions[0] if num_tickets == 1 else predictions
+
+
+'''
+
+
+
+
+
+##################################################################
+####       versao 
+####         2
+###################################################################
+
+
+
+
+
+
+
+
+import os
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
+import joblib
+
+def generate_ai_numbers(game, num_tickets=1):
+    """
+    Gera números de loteria previstos usando um modelo treinado previamente.
+    """
+    try:
+        # Caminho do modelo treinado
+        model_path = f"trained_models/{game.name.lower()}_rf_model.pkl"
+        scaler_path = f"trained_models/{game.name.lower()}_scaler.pkl"
+
+        if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+            raise FileNotFoundError(f"Modelo ou escalador não encontrados para {game.name}.")
+
+        # Carregar dados históricos
+        df = pd.read_csv(game.historical_data.path)
+        numbers_df = prepare_enhanced_lottery_data(df)
+
+        # Criar features avançadas
+        X, _ = create_advanced_features(numbers_df)
+
+        # Escalar os dados
+        scaler = joblib.load(scaler_path)
+        X_scaled = scaler.transform(X)
+
+        # Carregar modelo e fazer previsões
+        model = joblib.load(model_path)
+        predictions = model.predict(X_scaled[-1:])
+
+        # Gerar números baseados nas previsões
+        numbers = generate_smart_numbers(
+            predictions,
+            game.total_numbers,
+            game.numbers_to_choose,
+            []
+        )
+
+        return sorted(numbers)
+
+    except Exception as e:
+        print(f"Erro na geração de números: {str(e)}")
+        return fallback_generation(game, num_tickets)
+
+
+
+
+def prepare_enhanced_lottery_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Preparação aprimorada dos dados históricos"""
+    # Assume que o DataFrame contém as colunas com os números sorteados
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    return df[numeric_columns]
+
+def create_advanced_features(numbers_df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
+    """Criação de features mais sofisticadas"""
+    features = pd.DataFrame()
+
+    # Features estatísticas
+    for window in [3, 5, 10]:
+        features[f'mean_{window}'] = numbers_df.rolling(window=window).mean().mean(axis=1)
+        features[f'std_{window}'] = numbers_df.rolling(window=window).std().mean(axis=1)
+
+    # Lag features
+    for lag in [1, 2, 3]:
+        lagged = numbers_df.shift(lag)
+        features[f'lag_{lag}'] = lagged.mean(axis=1)
+
+    # Preencher valores ausentes
+    features = features.fillna(0)
+
+    # Definir y como a soma das colunas na próxima linha
+    y = numbers_df.iloc[1:].sum(axis=1).values  # Aqui y é a soma das colunas da próxima linha
+
+    return features.iloc[:-1], y
+
+
+def train_ensemble_models(X: pd.DataFrame, y: np.ndarray) -> Dict:
+    """Treina um ensemble de modelos de ML"""
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Random Forest
+    rf_model = RandomForestRegressor(
+        n_estimators=100,
+        max_depth=10,
+        random_state=42
+    )
+    
+    # Gradient Boosting
+    gb_model = GradientBoostingRegressor(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=5,
+        random_state=42
+    )
+    
+    # XGBoost
+    xgb_model = xgb.XGBRegressor(
+        n_estimators=100,
+        learning_rate=0.1,
+        max_depth=6,
+        random_state=42
+    )
+    
+    # Treinar modelos
+    rf_model.fit(X_scaled, y)
+    gb_model.fit(X_scaled, y)
+    xgb_model.fit(X_scaled, y)
+    
+    return {
+        'rf': rf_model,
+        'gb': gb_model,
+        'xgb': xgb_model,
+        'scaler': scaler
+    }
+
+def analyze_enhanced_patterns(numbers_df: pd.DataFrame) -> Dict:
+    """Análise de padrões nos números"""
+    patterns = {
+        'mean': numbers_df.mean().mean(),
+        'std': numbers_df.std().mean(),
+        'min': numbers_df.min().min(),
+        'max': numbers_df.max().max()
+    }
+    return patterns
+
+def analyze_advanced_frequency(numbers: np.ndarray, total_numbers: int) -> Dict:
+    """Análise de frequência com pesos temporais"""
+    frequency_dict = {i: 0 for i in range(1, total_numbers + 1)}
+    weights = np.linspace(0.5, 1.0, len(numbers))
+    
+    for idx, row in enumerate(numbers):
+        for number in row.flatten():
+            if number > 0:  # Ignora zeros
+                frequency_dict[int(number)] += weights[idx]
+    
+    return frequency_dict
+
+def get_smart_hot_numbers(frequency_dict: Dict, limit: int = 20) -> List[int]:
+    """Seleção de números quentes baseada na frequência"""
+    return [num for num, _ in sorted(
+        frequency_dict.items(), 
+        key=lambda x: x[1], 
+        reverse=True
+    )[:limit]]
+    
+    
+def generate_smart_numbers(
+    pred: np.ndarray,
+    total_numbers: int,
+    numbers_to_choose: int,
+    hot_numbers: List[int]
+) -> List[int]:
+    """Geração inteligente de números"""
+    # Criar o conjunto completo de números
+    numbers_pool = set(range(1, total_numbers + 1))
+    hot_set = set(hot_numbers[:numbers_to_choose])
+    
+    # Escolher alguns números dos hot numbers
+    hot_count = min(len(hot_set), random.randint(numbers_to_choose // 3, numbers_to_choose // 2))
+    selected = set(random.sample(list(hot_set), hot_count))
+    
+    # Completar com números aleatórios
+    remaining = numbers_to_choose - len(selected)
+    available = list(numbers_pool - selected)  # Converter para lista
+    if remaining > 0:
+        selected.update(random.sample(available, min(remaining, len(available))))
+    
+    return sorted(list(selected))
+
+
+'''
+def generate_smart_numbers(
+    pred: np.ndarray,
+    total_numbers: int,
+    numbers_to_choose: int,
+    hot_numbers: List[int]
+) -> List[int]:
+    """Geração inteligente de números"""
+    # Combinar previsão do modelo com números quentes
+    numbers_pool = set(range(1, total_numbers + 1))
+    hot_set = set(hot_numbers[:numbers_to_choose])
+    
+    # Escolher alguns números dos hot numbers
+    hot_count = random.randint(numbers_to_choose // 3, numbers_to_choose // 2)
+    selected = set(random.sample(hot_set, hot_count))
+    
+    # Completar com números aleatórios
+    remaining = numbers_to_choose - len(selected)
+    available = list(numbers_pool - selected)
+    selected.update(random.sample(available, remaining))
+    
+    return sorted(list(selected))
+'''
+def is_diverse_prediction(
+    numbers: List[int],
+    existing_predictions: List[List[int]],
+    numbers_to_choose: int
+) -> bool:
+    """Verifica se a previsão é suficientemente diversa"""
+    if not existing_predictions:
+        return True
+    
+    numbers_set = set(numbers)
+    return all(
+        len(numbers_set.intersection(set(existing))) < numbers_to_choose // 2
+        for existing in existing_predictions
+    )
+
+def fallback_generation(game, num_tickets: int) -> List[List[int]]:
+    """Geração aleatória como fallback"""
+    predictions = []
+    while len(predictions) < num_tickets:
+        numbers = sorted(random.sample(range(1, game.total_numbers + 1), game.numbers_to_choose))
+        if numbers not in predictions:
+            predictions.append(numbers)
+    return predictions[0] if num_tickets == 1 else predictions
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
