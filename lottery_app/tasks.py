@@ -220,60 +220,150 @@ def check_lottery_updates():
 
 
 
-
-import joblib
 import os
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Input
+from keras.optimizers import Adam
+import joblib
+
+
+def create_neural_network(input_dim):
+    """
+    Cria e retorna um modelo de rede neural aprimorado.
+    """
+    model = Sequential()
+    model.add(Input(shape=(input_dim,)))
+    model.add(Dense(256, activation='relu'))  # Aumentando a quantidade de neurônios
+    model.add(Dropout(0.3))
+    model.add(Dense(128, activation='relu'))
+    model.add(Dropout(0.3))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dense(1, activation='sigmoid'))  # Saída para classificação binária
+    
+    model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+def preprocess_data(df, target_column=None):
+    """
+    Prepara os dados para treinamento, retornando X (features) e y (target).
+    """
+    # Gerar colunas adicionais (lags, médias móveis, etc.)
+    for lag in range(1, 4):  # Lags 1, 2, 3
+        df[f'lag_{lag}'] = df['Bola1'].shift(lag)  # Exemplo: baseado na primeira bola
+    df['mean_3'] = df[['Bola1', 'Bola2', 'Bola3']].mean(axis=1)  # Média das 3 primeiras bolas
+    df['mean_10'] = df[['Bola1', 'Bola2', 'Bola3', 'Bola4', 'Bola5']].mean(axis=1)  # Média das 10 primeiras bolas
+
+    # Seleciona colunas relevantes (somente colunas de bolas e geradas)
+    columns = [col for col in df.columns if 'Bola' in col or 'lag_' in col or 'mean_' in col]
+    if target_column:
+        columns.append(target_column)
+
+    # Remove linhas com valores nulos (necessário após shift)
+    df = df[columns].dropna()
+
+    # Se houver uma coluna alvo, separamos a variável dependente
+    X = df[[col for col in columns if col != target_column]]
+    y = df[target_column] if target_column else None
+
+    return X, y
+
+
 
 def train_all_models():
     """
     Treina modelos para todos os jogos utilizando os arquivos CSV disponíveis.
     """
     from lottery_app.models import LotteryGame
-    from lottery_app.utils.number_analysis import (
-        prepare_enhanced_lottery_data,
-        create_advanced_features,
-        train_ensemble_models
-    )
 
     try:
-        # Pasta onde os modelos serão salvos
-        models_dir = "trained_models"
-        if not os.path.exists(models_dir):
-            os.makedirs(models_dir)
-            print(f"Pasta {models_dir} criada para salvar os modelos.")
+        base_dir = "trained_models"
+        if not os.path.exists(base_dir):
+            os.makedirs(base_dir)
+            print(f"Pasta '{base_dir}' criada para salvar os modelos.")
+
+        # Mapeamento de jogos e suas colunas alvo
+        target_column_mapping = {
+            'mega-sena': 'Ganhadores 6 acertos',
+            'lotofácil': 'Ganhadores 15 acertos',
+            'quina': 'Ganhadores 5 acertos',
+        }
 
         games = LotteryGame.objects.all()
         for game in games:
             print(f"Treinando modelo para o jogo: {game.name}")
 
-            # Verificar se os dados históricos existem
+            # Verificar se os dados históricos estão disponíveis
             if not game.historical_data or not os.path.exists(game.historical_data.path):
-                print(f"Dados históricos não encontrados para o jogo {game.name}.")
+                print(f"Dados históricos não encontrados para o jogo '{game.name}'. Ignorando.")
                 continue
 
             # Carregar dados históricos
             df = pd.read_csv(game.historical_data.path)
-            numbers_df = prepare_enhanced_lottery_data(df)
 
-            # Criar features avançadas
-            X, y = create_advanced_features(numbers_df)
+            # Obter coluna alvo
+            target_column = target_column_mapping.get(game.name.lower())
+            if not target_column:
+                print(f"Coluna alvo não mapeada para o jogo '{game.name}'. Ignorando.")
+                continue
 
-            # Treinar ensemble de modelos
-            models = train_ensemble_models(X, y)
+            if target_column not in df.columns:
+                print(f"Coluna alvo '{target_column}' não encontrada nos dados do jogo '{game.name}'.")
+                print(f"Colunas disponíveis: {list(df.columns)}")
+                continue
 
-            # Salvar os modelos treinados
-            model_path = os.path.join(models_dir, f"{game.name.lower()}_rf_model.pkl")
-            scaler_path = os.path.join(models_dir, f"{game.name.lower()}_scaler.pkl")
-            
+            # Pré-processamento dos dados
+            X, y = preprocess_data(df, target_column=target_column)
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
+
+            # Criar e treinar o modelo
+            model = create_neural_network(input_dim=X.shape[1])
+            model.fit(X_scaled, y, epochs=50, batch_size=32, validation_split=0.2, verbose=1)
+
+            # Normalizar nome do jogo para o diretório
+            game_dir_name = (
+                game.name.lower()
+                .strip()
+                .replace(" ", "_")
+                .replace("-", "_")
+                .replace("á", "a")
+                .replace("é", "e")
+                .replace("í", "i")
+                .replace("ó", "o")
+                .replace("ú", "u")
+                .replace("ç", "c")
+            )
+            game_dir = os.path.join(base_dir, game_dir_name)
+
+            # Criar diretório específico para o jogo
+            if not os.path.exists(game_dir):
+                os.makedirs(game_dir)
+                print(f"Pasta '{game_dir}' criada para o jogo '{game.name}'.")
+
+            # Caminhos para salvar os modelos
+            model_path = os.path.join(game_dir, "nn_model.keras")
+            scaler_path = os.path.join(game_dir, "scaler.pkl")
+
+            # Salvar nomes das colunas usadas no treinamento
+            feature_names_path = os.path.join(game_dir, "feature_names.pkl")
+
+            # Substituir arquivos antigos, se existirem
             if os.path.exists(model_path):
-                print(f"Modelo antigo encontrado para {game.name}. Substituindo pelo novo.")
-            
-            joblib.dump(models['rf'], model_path)  # Salvar o modelo RandomForest
-            joblib.dump(models['scaler'], scaler_path)  # Salvar o escalador
-            print(f"Novo modelo salvo em {model_path} e escalador salvo em {scaler_path}")
+                print(f"Substituindo modelo existente para o jogo '{game.name}'.")
+
+            # Salvar modelo e escalador
+            model.save(model_path)
+            joblib.dump(scaler, scaler_path)
+            joblib.dump(X.columns.to_list(), feature_names_path)
+
+            print(f"Modelo salvo em '{model_path}' e escalador salvo em '{scaler_path}'.")
 
     except Exception as e:
         print(f"Erro ao treinar os modelos: {str(e)}")
+
+
 
 
 
@@ -281,11 +371,12 @@ def start_scheduler():
     """
     Configura e inicia o agendador.
     """
-    schedule.every().day.at(f"{START_TIME_HOUR:02d}:00").do(train_all_models)  # Treinar modelos
+    # Agendamento para treinar os modelos às 14:00 (uma vez por dia)
+    schedule.every().day.at("23:59").do(train_all_models)
 
-#    schedule.every().day.at(f"{START_TIME_HOUR:02d}:00").do(check_lottery_updates)
+    # Agendamento para verificar atualizações de loteria às 10:00
+    schedule.every().day.at(f"{START_TIME_HOUR:02d}:00").do(check_lottery_updates)
     print("Agendador iniciado. Aguardando tarefas...")
-    train_all_models()
 
     while True:
         # Verifica se já passou das 10:00 mas ainda está antes das 11:00

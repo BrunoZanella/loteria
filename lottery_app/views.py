@@ -133,10 +133,14 @@ def home(request):
 
     # Verifica se o usuário está autenticado
     has_subscription = False
+    has_subscription = True # por enquanto todo mundo liberado
     if request.user.is_authenticated:
         # Verifica o status da assinatura
         subscription = Subscription.objects.filter(user=request.user).first()
         has_subscription = subscription.is_valid() if subscription else False
+
+    # apagar essa linha para verificar a autorizacao
+    has_subscription = True # por enquanto todo mundo liberado
     
     return render(request, 'lottery_app/home.html', {
         'form': LotteryPlayForm(),

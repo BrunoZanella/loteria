@@ -315,36 +315,70 @@ from tensorflow.keras.optimizers import Adam
 from sklearn.model_selection import train_test_split
 import joblib
 
+
+
 def generate_ai_numbers(game, num_tickets=1):
     """
     Gera números de loteria previstos usando um modelo treinado previamente.
     """
     try:
-        # Caminho do modelo treinado
-        model_path = f"trained_models/{game.name.lower()}_rf_model.pkl"
-        scaler_path = f"trained_models/{game.name.lower()}_scaler.pkl"
+        # Diretório base do arquivo atual (number_analysis.py)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
 
-        if not os.path.exists(model_path) or not os.path.exists(scaler_path):
-            raise FileNotFoundError(f"Modelo ou escalador não encontrados para {game.name}.")
+        # Caminhos dos arquivos salvos
+        model_dir = os.path.abspath(os.path.join(base_dir, "../../trained_models", game.name.lower()))
+        normalized_game_name = (
+            game.name.strip()
+            .lower()
+            .replace("á", "a")
+            .replace("é", "e")
+            .replace("í", "i")
+            .replace("ó", "o")
+            .replace("ú", "u")
+            .replace(" ", "_")
+            .replace("-", "_")
+        )
+        model_dir = os.path.join(os.path.dirname(model_dir), normalized_game_name)
+        model_path = os.path.join(model_dir, "nn_model.keras")
+        scaler_path = os.path.join(model_dir, "scaler.pkl")
+        feature_names_path = os.path.join(model_dir, "feature_names.pkl")
+
+        # print(f'Model path: {model_path}')
+        # print(f'Scaler path: {scaler_path}')
+        # print(f'Feature names path: {feature_names_path}')
+
+        # Verificar arquivos
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Modelo não encontrado: {model_path}")
+        if not os.path.exists(scaler_path):
+            raise FileNotFoundError(f"Scaler não encontrado: {scaler_path}")
+        if not os.path.exists(feature_names_path):
+            raise FileNotFoundError(f"Nomes das features não encontrados: {feature_names_path}")
+
+        # Carregar scaler, modelo e nomes das features
+        scaler = joblib.load(scaler_path)
+        model = tf.keras.models.load_model(model_path)
+        feature_names = joblib.load(feature_names_path)
 
         # Carregar dados históricos
         df = pd.read_csv(game.historical_data.path)
-        numbers_df = prepare_enhanced_lottery_data(df)
 
-        # Criar features avançadas
+        # Criar features de entrada para previsão
+        numbers_df = prepare_enhanced_lottery_data(df)  # Processamento específico
         X, _ = create_advanced_features(numbers_df)
 
+        # Garantir que as colunas estão no mesmo formato
+        X = X.reindex(columns=feature_names, fill_value=0)
+
         # Escalar os dados
-        scaler = joblib.load(scaler_path)
         X_scaled = scaler.transform(X)
 
-        # Carregar modelo e fazer previsões
-        model = joblib.load(model_path)
+        # Fazer previsões
         predictions = model.predict(X_scaled[-1:])
 
-        # Gerar números baseados nas previsões
+        # Gerar números com base nas previsões
         numbers = generate_smart_numbers(
-            predictions,
+            predictions.flatten(),
             game.total_numbers,
             game.numbers_to_choose,
             []
@@ -359,11 +393,19 @@ def generate_ai_numbers(game, num_tickets=1):
 
 
 
+
+
+
+
 def prepare_enhanced_lottery_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Preparação aprimorada dos dados históricos"""
-    # Assume que o DataFrame contém as colunas com os números sorteados
+    """Preparação dos dados históricos com as features usadas no treinamento"""
+    # Aqui, ao invés de carregar um arquivo de features, vamos usar diretamente as colunas numéricas
     numeric_columns = df.select_dtypes(include=[np.number]).columns
-    return df[numeric_columns]
+    
+    # Retornar as colunas numéricas do DataFrame
+    numbers_df = df[numeric_columns]
+    return numbers_df
+
 
 def create_advanced_features(numbers_df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
     """Criação de features mais sofisticadas"""
@@ -388,45 +430,26 @@ def create_advanced_features(numbers_df: pd.DataFrame) -> Tuple[pd.DataFrame, np
     return features.iloc[:-1], y
 
 
-def train_ensemble_models(X: pd.DataFrame, y: np.ndarray) -> Dict:
-    """Treina um ensemble de modelos de ML"""
+def train_ensemble_models(X: pd.DataFrame, y: np.ndarray, game_name: str) -> Dict:
+    """Treina um ensemble de modelos de ML e salva as features usadas."""
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # Random Forest
-    rf_model = RandomForestRegressor(
-        n_estimators=100,
-        max_depth=10,
-        random_state=42
-    )
-    
-    # Gradient Boosting
-    gb_model = GradientBoostingRegressor(
-        n_estimators=100,
-        learning_rate=0.1,
-        max_depth=5,
-        random_state=42
-    )
-    
-    # XGBoost
-    xgb_model = xgb.XGBRegressor(
-        n_estimators=100,
-        learning_rate=0.1,
-        max_depth=6,
-        random_state=42
-    )
-    
-    # Treinar modelos
+    # Modelos
+    rf_model = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42)
     rf_model.fit(X_scaled, y)
-    gb_model.fit(X_scaled, y)
-    xgb_model.fit(X_scaled, y)
     
-    return {
-        'rf': rf_model,
-        'gb': gb_model,
-        'xgb': xgb_model,
-        'scaler': scaler
-    }
+    # Salvar scaler, modelo e features
+    feature_names_path = f"trained_models/{game_name.lower()}_features.pkl"
+    scaler_path = f"trained_models/{game_name.lower()}_scaler.pkl"
+    model_path = f"trained_models/{game_name.lower()}_rf_model.pkl"
+    
+    joblib.dump(list(X.columns), feature_names_path)  # Salvar nomes das features
+    joblib.dump(scaler, scaler_path)  # Salvar scaler
+    joblib.dump(rf_model, model_path)  # Salvar modelo
+    
+    return {"rf": rf_model, "scaler": scaler, "features": list(X.columns)}
+
 
 def analyze_enhanced_patterns(numbers_df: pd.DataFrame) -> Dict:
     """Análise de padrões nos números"""
@@ -483,29 +506,6 @@ def generate_smart_numbers(
     return sorted(list(selected))
 
 
-'''
-def generate_smart_numbers(
-    pred: np.ndarray,
-    total_numbers: int,
-    numbers_to_choose: int,
-    hot_numbers: List[int]
-) -> List[int]:
-    """Geração inteligente de números"""
-    # Combinar previsão do modelo com números quentes
-    numbers_pool = set(range(1, total_numbers + 1))
-    hot_set = set(hot_numbers[:numbers_to_choose])
-    
-    # Escolher alguns números dos hot numbers
-    hot_count = random.randint(numbers_to_choose // 3, numbers_to_choose // 2)
-    selected = set(random.sample(hot_set, hot_count))
-    
-    # Completar com números aleatórios
-    remaining = numbers_to_choose - len(selected)
-    available = list(numbers_pool - selected)
-    selected.update(random.sample(available, remaining))
-    
-    return sorted(list(selected))
-'''
 def is_diverse_prediction(
     numbers: List[int],
     existing_predictions: List[List[int]],
